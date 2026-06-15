@@ -1,0 +1,1749 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Draw Fight 003 MVP</title>
+  <style>
+    :root {
+      --bg: #f3f5f8;
+      --panel: #ffffff;
+      --ink: #17202c;
+      --muted: #697789;
+      --line: #d8e1eb;
+      --slot: #efad95;
+      --danger: #f05b67;
+      --blue: #83a5ee;
+      --green: #58bf7b;
+      --yellow: #f5c84f;
+      --shadow: 0 16px 38px rgba(35, 49, 68, 0.12);
+      --card-ratio: 1.625;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    body {
+      overflow-x: hidden;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .topbar {
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.94);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(10px);
+    }
+
+    .title {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0;
+      white-space: nowrap;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .battle-state {
+      flex: 0 0 auto;
+      border-radius: 999px;
+      background: #eef4ff;
+      border: 1px solid #c7d8ee;
+      color: #315b88;
+      padding: 4px 10px;
+      font-size: 13px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .battle-state.ended {
+      background: #fff2f3;
+      border-color: #f1a7b0;
+      color: #c93d4a;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .controls button,
+    .decision button {
+      min-height: 38px;
+      border: 1px solid #cad5e2;
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      padding: 0 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .controls button.active,
+    .decision button.primary,
+    .controls button.primary {
+      background: #263241;
+      border-color: #263241;
+      color: #fff;
+    }
+
+    .controls button.danger {
+      background: var(--danger);
+      border-color: var(--danger);
+      color: #fff;
+    }
+
+    .battle {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) 5px minmax(0, 1fr);
+      height: calc(100vh - 54px);
+      min-height: calc(100vh - 54px);
+      overflow: hidden;
+    }
+
+    .divider {
+      background: #82878e;
+    }
+
+    .field {
+      display: grid;
+      grid-template-columns: minmax(230px, 22vw) minmax(286px, 300px) minmax(96px, 8vw) minmax(360px, 1fr);
+      gap: 14px;
+      padding: 18px clamp(12px, 2vw, 28px);
+      min-height: 0;
+      overflow: hidden;
+      align-items: stretch;
+    }
+
+    .field.enemy {
+      grid-template-columns: minmax(360px, 1fr) minmax(96px, 8vw) minmax(286px, 300px) minmax(230px, 22vw);
+      padding-bottom: 14px;
+    }
+
+    .unit-panel,
+    .draw-panel,
+    .chain-panel,
+    .pending-panel {
+      min-width: 0;
+    }
+
+    .unit-panel {
+      display: grid;
+      align-content: center;
+      gap: 12px;
+    }
+
+    .unit-row {
+      display: grid;
+      grid-template-columns: 142px 1fr;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .enemy .unit-row {
+      grid-template-columns: 1fr 142px;
+    }
+
+    .portrait {
+      width: 142px;
+      aspect-ratio: 1 / 1.38;
+      border-radius: 20px;
+      display: grid;
+      place-items: center;
+      padding: 14px;
+      text-align: center;
+      font-size: 24px;
+      font-weight: 900;
+      line-height: 1.15;
+      color: #fff;
+      background: var(--blue);
+      box-shadow: var(--shadow);
+      overflow-wrap: anywhere;
+    }
+
+    .enemy .portrait {
+      background: #ed7eaf;
+    }
+
+    .unit-meta h2 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    .unit-meta p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-weight: 800;
+      line-height: 1.4;
+    }
+
+    .hp-bar,
+    .timer {
+      width: 100%;
+      height: 14px;
+      border: 1px solid #bac6d4;
+      background: #e9eef4;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .hp-fill,
+    .timer-fill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #28b66a, #9bd655);
+      transition: width 180ms ease;
+    }
+
+    .timer {
+      height: 28px;
+      border: 0;
+      background: #ffd36e;
+      border-radius: 0;
+      grid-column: 1 / -1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .timer-fill {
+      background: var(--danger);
+      width: 100%;
+      position: absolute;
+      inset: 0 auto 0 0;
+      z-index: 0;
+      transform: scaleX(0);
+      transform-origin: left center;
+    }
+
+    .timer::after {
+      content: attr(data-label);
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: #17202c;
+      font-size: 12px;
+      font-weight: 1000;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.72);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .hp-text {
+      margin-top: 8px;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .status-row {
+      min-height: 28px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .status-chip {
+      border-radius: 999px;
+      background: #eef4ff;
+      color: #24507f;
+      border: 1px solid #bfd3ec;
+      padding: 3px 8px;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: help;
+    }
+
+    .draw-panel {
+      display: grid;
+      grid-template-columns: max-content 82px 82px;
+      grid-template-rows: auto auto 28px;
+      gap: 10px;
+      align-content: center;
+      justify-content: center;
+    }
+
+    .draw-panel > div:not(.decision):not(.timer) {
+      display: grid;
+      justify-items: center;
+      align-content: start;
+      min-width: 0;
+    }
+
+    .current-label,
+    .pile-label,
+    .section-label {
+      color: var(--danger);
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 0;
+      line-height: 1.2;
+    }
+
+    .current-card-box {
+      min-width: 0;
+      width: clamp(96px, 8.7vw, 128px);
+      aspect-ratio: 560 / 910;
+      display: grid;
+      place-items: stretch;
+      align-self: start;
+    }
+
+    .pile {
+      width: 100%;
+      height: 196px;
+      border: 4px solid var(--slot);
+      border-radius: 5px;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      color: var(--danger);
+      font-weight: 900;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.65);
+    }
+
+    .pile::before {
+      content: "";
+      position: absolute;
+      inset: 14px 10px;
+      background: url("./Texture/卡背.png") center / contain no-repeat;
+      opacity: 0.18;
+      filter: saturate(0.8);
+    }
+
+    .pile span {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 8px;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .pile b {
+      color: var(--ink);
+      font-size: 30px;
+    }
+
+    .decision {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .decision button {
+      flex: 1 1 0;
+      min-width: 0;
+    }
+
+    .pending-panel {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .pending-list {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      min-height: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      padding: 4px 2px 8px;
+      scrollbar-color: #a9b6c5 transparent;
+    }
+
+    .pending-list.empty,
+    .chain-list.empty {
+      display: grid;
+      place-items: center;
+      border: 2px dashed #c9d3df;
+      border-radius: 8px;
+      color: var(--muted);
+      font-weight: 800;
+      min-height: 100%;
+      background: rgba(255, 255, 255, 0.45);
+      text-align: center;
+      padding: 10px;
+    }
+
+    .chain-panel {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .fixed-chain-panel,
+    .fixed-pending-panel {
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .fixed-chain-panel .chain-window,
+    .fixed-pending-panel .pending-list {
+      border: 2px dashed #c9d3df;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.38);
+      padding: 8px;
+    }
+
+    .fixed-chain-panel .chain-list.empty,
+    .fixed-pending-panel .pending-list.empty {
+      border: 0;
+      background: transparent;
+      padding: 8px;
+    }
+
+    .chain-window {
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 6px;
+      scrollbar-color: #a9b6c5 transparent;
+    }
+
+    .chain-list {
+      display: grid;
+      gap: 10px;
+      min-height: 100%;
+    }
+
+    .chain-card {
+      border: 3px solid var(--slot);
+      background: rgba(255, 255, 255, 0.82);
+      border-radius: 8px;
+      padding: 10px;
+      box-shadow: 0 10px 26px rgba(25, 37, 52, 0.07);
+      opacity: 1;
+      animation: chainNudge 180ms ease;
+    }
+
+    .chain-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 8px;
+      font-weight: 900;
+    }
+
+    .chain-meta {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .chain-sequence {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+    }
+
+    .chain-step {
+      flex: 0 0 auto;
+      border: 2px solid #e5b3a1;
+      border-radius: 7px;
+      min-width: 86px;
+      max-width: 108px;
+      padding: 8px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      text-align: center;
+      position: relative;
+    }
+
+    .chain-step.active {
+      border-color: var(--danger);
+      color: var(--ink);
+      background: #fff2f3;
+      animation: pulse 900ms ease infinite;
+    }
+
+    .chain-progress {
+      height: 6px;
+      background: #e7edf4;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .chain-progress span {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: var(--danger);
+    }
+
+    .card {
+      --card-w: 118px;
+      flex: 0 0 auto;
+      width: var(--card-w);
+      aspect-ratio: 560 / 910;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      position: relative;
+      color: #f8f5ff;
+      filter: drop-shadow(0 8px 14px rgba(16, 22, 32, 0.22));
+      cursor: pointer;
+      animation: drawIn 220ms ease;
+    }
+
+    .card.current {
+      --card-w: 128px;
+      width: 100%;
+      height: 100%;
+      justify-self: stretch;
+    }
+
+    .card.small {
+      --card-w: 86px;
+    }
+
+    .card.pending-card {
+      --card-w: 48px;
+      filter: drop-shadow(0 5px 9px rgba(16, 22, 32, 0.18));
+    }
+
+    .card img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: fill;
+      border-radius: 10px;
+      pointer-events: none;
+    }
+
+    .card-title {
+      position: absolute;
+      top: 8.4%;
+      left: 13.4%;
+      right: 13.4%;
+      height: 10.2%;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      font-size: clamp(7px, calc(var(--card-w) * 0.072), 12px);
+      font-weight: 900;
+      line-height: 1.02;
+      text-shadow: 0 2px 0 #1c1a2a;
+      overflow-wrap: anywhere;
+      overflow: hidden;
+    }
+
+    .card-desc {
+      position: absolute;
+      left: 8%;
+      right: 8%;
+      bottom: 5.4%;
+      height: 28.5%;
+      color: #f4f2ff;
+      display: grid;
+      align-content: start;
+      gap: 2px;
+      padding: 7% 5% 3%;
+      font-size: clamp(8px, calc(var(--card-w) * 0.075), 13px);
+      line-height: 1.22;
+      font-weight: 800;
+      overflow: hidden;
+      text-shadow: 0 1px 0 #11101b;
+    }
+
+    .card-time {
+      color: #f9d980;
+      font-size: 0.92em;
+      font-weight: 900;
+    }
+
+    .empty-card-box {
+      width: 100%;
+      height: 100%;
+      aspect-ratio: 560 / 910;
+      border: 4px solid var(--slot);
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.36);
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-weight: 900;
+    }
+
+    .log {
+      max-height: 118px;
+      overflow-y: auto;
+      border-top: 1px solid #ced8e4;
+      padding-top: 8px;
+      color: #26374b;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .log p {
+      margin: 0 0 3px;
+      animation: fadeIn 180ms ease;
+    }
+
+    .log .card-ref {
+      color: #d3404d;
+      font-weight: 900;
+      cursor: pointer;
+      border-bottom: 1px dotted currentColor;
+    }
+
+    .float-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 40;
+    }
+
+    .float-text {
+      position: fixed;
+      font-size: 24px;
+      font-weight: 1000;
+      text-shadow: 0 2px 0 #fff;
+      animation: floatUp 720ms ease forwards;
+    }
+
+    .float-text.damage {
+      color: var(--danger);
+    }
+
+    .float-text.heal,
+    .float-text.block {
+      color: #1d9c5d;
+    }
+
+    .tooltip {
+      position: fixed;
+      z-index: 80;
+      max-width: min(320px, calc(100vw - 24px));
+      background: #fff;
+      color: var(--ink);
+      border: 2px solid var(--slot);
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: var(--shadow);
+      display: none;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .tooltip.show {
+      display: block;
+    }
+
+    .viewer {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      background: rgba(15, 23, 34, 0.44);
+      z-index: 70;
+      padding: 20px;
+    }
+
+    .viewer.show {
+      display: grid;
+    }
+
+    .viewer-panel {
+      width: min(860px, 100%);
+      max-height: min(720px, calc(100vh - 40px));
+      overflow: hidden;
+      border-radius: 10px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .viewer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      font-weight: 900;
+    }
+
+    .viewer-body {
+      overflow: auto;
+      padding: 14px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(98px, 1fr));
+      gap: 12px;
+      align-items: start;
+    }
+
+    .close-btn {
+      border: 0;
+      background: #263241;
+      color: #fff;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .winner {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      z-index: 90;
+      background: rgba(9, 14, 23, 0.68);
+    }
+
+    .winner.show {
+      display: grid;
+    }
+
+    .winner-box {
+      background: #fff;
+      border-radius: 10px;
+      padding: 32px;
+      width: min(420px, calc(100vw - 32px));
+      text-align: center;
+      box-shadow: var(--shadow);
+      border: 3px solid var(--danger);
+    }
+
+    .winner-box h2 {
+      margin: 0 0 16px;
+      font-size: 28px;
+    }
+
+    @keyframes drawIn {
+      from { transform: translateY(10px) scale(0.96); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    @keyframes chainNudge {
+      from { transform: translateY(4px); }
+      to { transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(240, 91, 103, 0.0); }
+      50% { box-shadow: 0 0 0 4px rgba(240, 91, 103, 0.16); }
+    }
+
+    @keyframes floatUp {
+      from { transform: translateY(0) scale(0.92); opacity: 0; }
+      18% { opacity: 1; }
+      to { transform: translateY(-54px) scale(1.04); opacity: 0; }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 1080px) {
+      .battle {
+        grid-template-rows: auto 5px auto;
+        height: auto;
+        overflow: visible;
+      }
+
+      .field,
+      .field.enemy {
+        grid-template-columns: 1fr;
+        overflow: visible;
+      }
+
+      .field.enemy .unit-panel {
+        order: 1;
+      }
+
+      .field.enemy .draw-panel {
+        order: 2;
+      }
+
+      .field.enemy .chain-panel {
+        order: 3;
+      }
+
+      .chain-window {
+        max-height: 320px;
+      }
+    }
+
+    @media (min-width: 1081px) and (max-height: 820px) {
+      .field {
+        padding-top: 6px;
+        padding-bottom: 6px;
+        gap: 12px;
+      }
+
+      .unit-row,
+      .enemy .unit-row {
+        grid-template-columns: 116px 1fr;
+        gap: 12px;
+      }
+
+      .enemy .unit-row {
+        grid-template-columns: 1fr 116px;
+      }
+
+      .portrait {
+        width: 116px;
+        border-radius: 16px;
+        font-size: 20px;
+      }
+
+      .unit-panel {
+        gap: 8px;
+      }
+
+      .unit-meta h2 {
+        font-size: 19px;
+        margin-bottom: 5px;
+      }
+
+      .unit-meta p {
+        margin-bottom: 6px;
+        font-size: 13px;
+      }
+
+      .hp-text {
+        margin-top: 5px;
+        font-size: 14px;
+      }
+
+      .draw-panel {
+        grid-template-columns: 88px 72px 72px;
+        gap: 6px;
+      }
+
+      .pile {
+        height: 126px;
+      }
+
+      .current-card-box {
+        width: 88px;
+      }
+
+      .card.current {
+        --card-w: 88px;
+      }
+
+      .current-label,
+      .pile-label,
+      .section-label {
+        font-size: 16px;
+      }
+
+      .card.small {
+        --card-w: 72px;
+      }
+
+      .pending-list {
+        min-height: 0;
+        padding-bottom: 6px;
+      }
+
+      .pending-list.empty,
+      .chain-list.empty {
+        min-height: 100%;
+      }
+
+      .pending-panel,
+      .chain-panel {
+        gap: 6px;
+      }
+
+      .chain-window {
+        min-height: 0;
+      }
+
+      .card.pending-card {
+        --card-w: 32px;
+      }
+
+      .chain-card {
+        padding: 8px;
+      }
+
+      .chain-step {
+        min-width: 76px;
+        max-width: 92px;
+        padding: 6px;
+      }
+
+      .timer {
+        height: 18px;
+      }
+
+      .log {
+        max-height: 82px;
+        padding-top: 5px;
+        font-size: 12px;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .topbar {
+        height: auto;
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 10px;
+      }
+
+      .controls {
+        justify-content: flex-start;
+      }
+
+      .unit-row,
+      .enemy .unit-row {
+        grid-template-columns: 104px 1fr;
+      }
+
+      .portrait {
+        width: 104px;
+        border-radius: 14px;
+        font-size: 18px;
+      }
+
+      .draw-panel {
+        grid-template-columns: 118px 76px 76px;
+      }
+
+      .pile {
+        height: 156px;
+      }
+
+      .current-card-box {
+        width: 118px;
+      }
+
+      .card.current {
+        --card-w: 118px;
+      }
+
+      .current-label,
+      .pile-label,
+      .section-label {
+        font-size: 17px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="title">
+        <h1>Fight 003</h1>
+        <span class="subtitle">牌链封装 + 工作区循环</span>
+        <span class="battle-state" id="battleState">回合制 · 运行中</span>
+      </div>
+      <div class="controls" aria-label="战斗控制">
+        <button data-speed="0.1">0.1x</button>
+        <button data-speed="0.5">0.5x</button>
+        <button data-speed="1">1x</button>
+        <button data-speed="2">2x</button>
+        <button data-speed="3">3x</button>
+        <button data-speed="5">5x</button>
+        <button id="turnModeBtn" class="active">回合制</button>
+        <button id="pauseBtn">暂停</button>
+        <button id="newBattleBtn" class="danger">新战斗</button>
+      </div>
+    </header>
+
+    <main class="battle">
+      <section class="field enemy" id="enemyField">
+        <div class="chain-panel fixed-chain-panel">
+          <div class="section-label">敌方牌链区</div>
+          <div class="chain-window"><div class="chain-list" id="enemyChains"></div></div>
+        </div>
+        <div class="pending-panel fixed-pending-panel">
+          <div class="section-label">敌方待封装区</div>
+          <div class="pending-list" id="enemyPending"></div>
+        </div>
+        <div class="draw-panel">
+          <div>
+            <div class="current-label">当前牌</div>
+            <div class="current-card-box" id="enemyCurrent"></div>
+          </div>
+          <div>
+            <div class="pile-label">抽牌堆</div>
+            <div class="pile" id="enemyDeck" data-side="enemy" data-pile="deck"></div>
+          </div>
+          <div>
+            <div class="pile-label">弃牌堆</div>
+            <div class="pile" id="enemyDiscard" data-side="enemy" data-pile="discard"></div>
+          </div>
+          <div class="decision" aria-hidden="true">
+            <button disabled>自动编入</button>
+            <button disabled>自动弃置</button>
+            <button disabled>自动封装</button>
+          </div>
+          <div class="timer"><div class="timer-fill" id="enemyTimer"></div></div>
+        </div>
+        <div class="unit-panel">
+          <div class="unit-row">
+            <div class="unit-meta" id="enemyMeta"></div>
+            <div class="portrait" id="enemyPortrait">ENEMY</div>
+          </div>
+          <div class="status-row" id="enemyStatuses"></div>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <section class="field player" id="playerField">
+        <div class="unit-panel">
+          <div class="unit-row">
+            <div class="portrait" id="playerPortrait">PLAYER</div>
+            <div class="unit-meta" id="playerMeta"></div>
+          </div>
+          <div class="status-row" id="playerStatuses"></div>
+          <div class="log" id="battleLog"></div>
+        </div>
+        <div class="draw-panel">
+          <div>
+            <div class="current-label">当前牌</div>
+            <div class="current-card-box" id="playerCurrent"></div>
+          </div>
+          <div>
+            <div class="pile-label">抽牌堆</div>
+            <div class="pile" id="playerDeck" data-side="player" data-pile="deck"></div>
+          </div>
+          <div>
+            <div class="pile-label">弃牌堆</div>
+            <div class="pile" id="playerDiscard" data-side="player" data-pile="discard"></div>
+          </div>
+          <div class="decision">
+            <button id="compileBtn" class="primary">编入</button>
+            <button id="discardBtn">弃置</button>
+            <button id="sealBtn" class="primary">封装牌链</button>
+          </div>
+          <div class="timer"><div class="timer-fill" id="playerTimer"></div></div>
+        </div>
+        <div class="pending-panel fixed-pending-panel">
+          <div class="section-label">玩家待封装区</div>
+          <div class="pending-list" id="playerPending"></div>
+        </div>
+        <div class="chain-panel fixed-chain-panel">
+          <div class="section-label">玩家牌链区</div>
+          <div class="chain-window"><div class="chain-list" id="playerChains"></div></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="float-layer" id="floatLayer"></div>
+  <div class="tooltip" id="tooltip"></div>
+  <div class="viewer" id="viewer">
+    <div class="viewer-panel">
+      <div class="viewer-head">
+        <span id="viewerTitle">牌堆</span>
+        <button class="close-btn" id="viewerClose">关闭</button>
+      </div>
+      <div class="viewer-body" id="viewerBody"></div>
+    </div>
+  </div>
+  <div class="winner" id="winner">
+    <div class="winner-box">
+      <h2 id="winnerTitle">战斗结束</h2>
+      <button class="close-btn" id="winnerNew">新战斗</button>
+    </div>
+  </div>
+
+  <script src="./data/game_data.js"></script>
+  <script>
+    const FACE = "./Texture/卡面.png";
+    const BACK = "./Texture/卡背.png";
+    const DATA = window.BATTLE_DATA;
+    const cards = new Map(DATA.cards.map((card) => [card.CardID, card]));
+    const config = Object.fromEntries(DATA.config.map((row) => [row.Key, row.Value]));
+    const statusText = {
+      burn: "燃烧",
+      poison: "中毒",
+      bleed: "裂伤",
+      block: "护盾",
+      focus: "专注"
+    };
+    const statusTips = {
+      burn: "燃烧：自然结算时造成层数伤害并减少1层，可被燃烧牌利用。",
+      poison: "中毒：自然结算时造成层数伤害并减少1层，可被毒爆引爆。",
+      bleed: "裂伤：刀刃体系资源，可被撕开伤口放大。",
+      block: "护盾：抵消即将受到的伤害。",
+      focus: "专注：下一次直接伤害提高，每次伤害后消耗1层。"
+    };
+    const state = {
+      speed: 1,
+      mode: "turn",
+      paused: false,
+      last: performance.now(),
+      log: [],
+      fighters: {},
+      battleOver: false,
+      chainId: 1,
+      renderCache: new Map()
+    };
+    window.__fightState = state;
+
+    const $ = (id) => document.getElementById(id);
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;"
+      }[ch]));
+    }
+
+    function shuffle(list) {
+      const out = [...list];
+      for (let i = out.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [out[i], out[j]] = [out[j], out[i]];
+      }
+      return out;
+    }
+
+    function makeDeck(deckList) {
+      const deck = [];
+      for (const [id, count] of Object.entries(deckList)) {
+        for (let i = 0; i < count; i += 1) deck.push(cards.get(id));
+      }
+      return shuffle(deck);
+    }
+
+    function pickCharacters() {
+      const pool = [...DATA.characters];
+      const player = pool[Math.floor(Math.random() * pool.length)];
+      let enemy = pool[Math.floor(Math.random() * pool.length)];
+      if (pool.length > 1) {
+        while (enemy.CharacterID === player.CharacterID) {
+          enemy = pool[Math.floor(Math.random() * pool.length)];
+        }
+      }
+      return { player, enemy };
+    }
+
+    function createFighter(character, side) {
+      return {
+        side,
+        character,
+        name: character.Name,
+        maxHp: Number(character.HP),
+        hp: Number(character.HP),
+        style: character.AIStyle,
+        deck: makeDeck(character.DeckList),
+        discard: [],
+        pending: [],
+        chains: [],
+        current: null,
+        phase: "draw",
+        timer: Number(config.DrawTimeT || 1),
+        timerMax: Number(config.DrawTimeT || 1),
+        statuses: {},
+        statusTimer: Number(config.StatusTickT || 2.5)
+      };
+    }
+
+    function opponent(fighter) {
+      return fighter.side === "player" ? state.fighters.enemy : state.fighters.player;
+    }
+
+    function setHtml(id, html) {
+      if (state.renderCache.get(id) !== html) {
+        $(id).innerHTML = html;
+        state.renderCache.set(id, html);
+      }
+    }
+
+    function addLog(text) {
+      state.log.unshift(text);
+      state.log = state.log.slice(0, 48);
+    }
+
+    function cardTooltip(card) {
+      return `<strong>${escapeHtml(card.Name)}</strong><br>${escapeHtml(card.Archetype)} · ${escapeHtml(card.Rarity)} · ${card.PlayTimeT}T<br>${escapeHtml(card.Description)}`;
+    }
+
+    function cardHtml(card, size = "", extra = "", emptyText = "等待抽牌") {
+      if (!card) return `<div class="empty-card-box">${escapeHtml(emptyText)}</div>`;
+      return `
+        <div class="card ${size} ${extra}" data-tip="${escapeHtml(cardTooltip(card))}">
+          <img src="${FACE}" alt="">
+          <div class="card-title">${escapeHtml(card.Name)}</div>
+          <div class="card-desc">
+            <div class="card-time">${escapeHtml(card.Archetype)} · ${card.PlayTimeT}T</div>
+            <div>${escapeHtml(card.Description)}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function pileHtml(label, count) {
+      return `<span>${label}<b>${count}</b></span>`;
+    }
+
+    function phaseText(fighter) {
+      if (state.battleOver) return "战斗结束";
+      if (fighter.phase === "draw") return "抽牌中";
+      if (fighter.phase === "decision") return fighter.side === "player" ? "等待选择" : "自动判断";
+      if (fighter.phase === "play") return "编入中";
+      if (fighter.phase === "shuffle") return "洗牌中";
+      if (fighter.phase === "idle") return "牌库已空";
+      return "等待";
+    }
+
+    function renderUnit(fighter) {
+      const pct = Math.max(0, fighter.hp / fighter.maxHp * 100);
+      const html = `
+        <h2>${escapeHtml(fighter.name)}</h2>
+        <p>${escapeHtml(fighter.character.Stage)} · ${escapeHtml(fighter.character.AIStyle)}</p>
+        <div class="hp-bar"><div class="hp-fill" style="width:${pct}%"></div></div>
+        <div class="hp-text">HP ${fighter.hp.toFixed(1)} / ${fighter.maxHp}</div>
+        <p>${phaseText(fighter)}</p>
+      `;
+      setHtml(`${fighter.side}Meta`, html);
+      $(`${fighter.side}Portrait`).textContent = fighter.name;
+    }
+
+    function renderStatuses(fighter) {
+      const chips = Object.entries(fighter.statuses)
+        .filter(([, value]) => value > 0)
+        .map(([key, value]) => `<span class="status-chip" data-tip="${escapeHtml(statusTips[key] || key)}">${statusText[key] || key} ${value}</span>`)
+        .join("");
+      setHtml(`${fighter.side}Statuses`, chips);
+    }
+
+    function renderDrawPanel(fighter) {
+      let emptyText = "等待抽牌";
+      if (state.battleOver) emptyText = "战斗结束";
+      else if (fighter.phase === "idle") emptyText = "牌库已空";
+      setHtml(`${fighter.side}Current`, cardHtml(fighter.current, "current", "", emptyText));
+      setHtml(`${fighter.side}Deck`, pileHtml("抽牌堆", fighter.deck.length));
+      setHtml(`${fighter.side}Discard`, pileHtml("弃牌堆", fighter.discard.length));
+      let progress = fighter.timerMax > 0 ? Math.max(0, Math.min(1, 1 - fighter.timer / fighter.timerMax)) * 100 : 0;
+      let timerLabel = `${phaseText(fighter)} ${Math.round(progress)}%`;
+      if (state.mode === "turn" && fighter.side === "player" && fighter.phase === "decision" && fighter.current) {
+        progress = 100;
+        timerLabel = "等待选择（时间停止）";
+      } else if (state.battleOver) {
+        timerLabel = "战斗结束";
+      } else if (fighter.phase === "idle") {
+        timerLabel = "牌库已空";
+      } else if (fighter.phase === "play") {
+        timerLabel = `编入中 ${Math.round(progress)}%`;
+      } else if (fighter.phase === "draw") {
+        timerLabel = `抽牌中 ${Math.round(progress)}%`;
+      } else if (fighter.phase === "shuffle") {
+        timerLabel = `洗牌中 ${Math.round(progress)}%`;
+      }
+      const timerFill = $(`${fighter.side}Timer`);
+      timerFill.style.width = "100%";
+      timerFill.style.transform = `scaleX(${Math.max(0, Math.min(1, progress / 100))})`;
+      timerFill.parentElement.dataset.label = timerLabel;
+    }
+
+    function renderPending(fighter) {
+      const id = `${fighter.side}Pending`;
+      if (!fighter.pending.length) {
+        const text = fighter.side === "player"
+          ? "待封装区为空。编入牌后不会立即生效，封装后才开始循环触发。"
+          : "敌方待封装区为空。";
+        setHtml(id, `<span>${text}</span>`);
+        $(id).classList.add("empty");
+        return;
+      }
+      $(id).classList.remove("empty");
+      setHtml(id, fighter.pending.map((card) => cardHtml(card, "pending-card")).join(""));
+    }
+
+    function renderChains(fighter) {
+      const id = `${fighter.side}Chains`;
+      if (!fighter.chains.length) {
+        setHtml(id, `<span>暂无牌链</span>`);
+        $(id).classList.add("empty");
+        return;
+      }
+      $(id).classList.remove("empty");
+      const html = fighter.chains.map((chain, i) => {
+        const total = chain.cards.reduce((sum, card) => sum + Number(card.PlayTimeT), 0);
+        const active = chain.cards[chain.index];
+        const progress = chain.timerMax > 0 ? Math.max(0, Math.min(1, 1 - chain.timer / chain.timerMax)) * 100 : 0;
+        const steps = chain.cards.map((card, idx) => `
+          <div class="chain-step ${idx === chain.index ? "active" : ""}" data-tip="${escapeHtml(cardTooltip(card))}">
+            ${escapeHtml(card.Name)}<br>${card.PlayTimeT}T
+          </div>
+        `).join("");
+        return `
+          <article class="chain-card">
+            <div class="chain-head">
+              <span>链${i + 1}：${escapeHtml(active?.Name || "等待")}</span>
+              <span class="chain-meta">${chain.cards.length}张 · ${total.toFixed(1)}T/轮</span>
+            </div>
+            <div class="chain-sequence">${steps}</div>
+            <div class="chain-progress"><span style="width:${progress}%"></span></div>
+          </article>
+        `;
+      }).join("");
+      setHtml(id, html);
+    }
+
+    function renderLog() {
+      const html = state.log.map((line) => `<p>${line}</p>`).join("");
+      setHtml("battleLog", html);
+    }
+
+    function renderAll() {
+      renderBattleState();
+      for (const fighter of Object.values(state.fighters)) {
+        renderUnit(fighter);
+        renderStatuses(fighter);
+        renderDrawPanel(fighter);
+        renderPending(fighter);
+        renderChains(fighter);
+      }
+      renderLog();
+      $("compileBtn").disabled = state.battleOver || state.fighters.player.side !== "player" || !state.fighters.player.current || state.fighters.player.phase !== "decision";
+      $("discardBtn").disabled = $("compileBtn").disabled;
+      $("sealBtn").disabled = state.battleOver || state.fighters.player.pending.length === 0;
+    }
+
+    function renderBattleState() {
+      const badge = $("battleState");
+      if (state.battleOver) {
+        badge.textContent = state.winnerName ? `${state.winnerName} 胜利` : "战斗结束";
+        badge.classList.add("ended");
+        return;
+      }
+      badge.classList.remove("ended");
+      if (state.mode === "turn" && state.fighters.player?.phase === "decision" && state.fighters.player?.current) {
+        badge.textContent = "回合制 · 等待选择（时间停止）";
+        return;
+      }
+      badge.textContent = `${state.mode === "turn" ? "回合制" : `${state.speed}x`} · ${state.paused ? "暂停" : "运行中"}`;
+    }
+
+    function gainStatus(fighter, status, amount) {
+      fighter.statuses[status] = Math.max(0, Math.round((fighter.statuses[status] || 0) + amount));
+    }
+
+    function dealDamage(source, target, amount, reason = "") {
+      let value = Number(amount);
+      if ((source.statuses.focus || 0) > 0 && value > 0) {
+        value += source.statuses.focus * 2;
+        source.statuses.focus = Math.max(0, source.statuses.focus - 1);
+      }
+      const blocked = Math.min(target.statuses.block || 0, value);
+      target.statuses.block = Math.max(0, (target.statuses.block || 0) - blocked);
+      const final = Math.max(0, value - blocked);
+      target.hp = Math.max(0, target.hp - final);
+      floatAt(target.side, final > 0 ? `-${final.toFixed(1)}` : "挡住", final > 0 ? "damage" : "block");
+      addLog(`${source.name} ${reason}造成 ${final.toFixed(1)} 伤害${blocked ? `（护盾抵消 ${blocked.toFixed(1)}）` : ""}`);
+      if (target.hp <= 0) endBattle(source);
+    }
+
+    function heal(fighter, amount) {
+      const before = fighter.hp;
+      fighter.hp = Math.min(fighter.maxHp, fighter.hp + Number(amount));
+      const actual = fighter.hp - before;
+      if (actual > 0) {
+        floatAt(fighter.side, `+${actual.toFixed(1)}`, "heal");
+        addLog(`${fighter.name} 回复 ${actual.toFixed(1)} 生命`);
+      }
+    }
+
+    function block(fighter, amount) {
+      gainStatus(fighter, "block", Number(amount));
+      floatAt(fighter.side, `盾+${amount}`, "block");
+      addLog(`${fighter.name} 获得护盾 ${amount}`);
+    }
+
+    function runEffect(fighter, effect, card) {
+      const enemy = opponent(fighter);
+      if (effect.op === "damage") dealDamage(fighter, enemy, effect.amount, `触发 ${card.Name}，`);
+      if (effect.op === "status") gainStatus(effect.target === "self" ? fighter : enemy, effect.status, effect.amount);
+      if (effect.op === "block") block(fighter, effect.amount);
+      if (effect.op === "heal") heal(fighter, effect.amount);
+      if (effect.op === "burn_damage") dealDamage(fighter, enemy, (enemy.statuses.burn || 0) * effect.per, `借燃烧，`);
+      if (effect.op === "bleed_damage") dealDamage(fighter, enemy, (enemy.statuses.bleed || 0) * effect.per, `撕裂伤口，`);
+      if (effect.op === "ignite") {
+        const stacks = enemy.statuses.burn || 0;
+        dealDamage(fighter, enemy, stacks * effect.per, `引爆燃烧，`);
+        enemy.statuses.burn = 0;
+      }
+      if (effect.op === "poison_burst") {
+        const stacks = enemy.statuses.poison || 0;
+        dealDamage(fighter, enemy, stacks * effect.per, `引爆中毒，`);
+        enemy.statuses.poison = 0;
+      }
+      if (effect.op === "block_strike") dealDamage(fighter, enemy, (fighter.statuses.block || 0) * effect.ratio, `盾击，`);
+      if (effect.op === "cleanse") {
+        fighter.statuses.burn = 0;
+        fighter.statuses.poison = 0;
+        fighter.statuses.bleed = 0;
+        addLog(`${fighter.name} 清除持续伤害状态`);
+      }
+      if (effect.op === "if_enemy_status" && (enemy.statuses[effect.status] || 0) > 0) {
+        runEffect(fighter, { op: effect.op2, amount: effect.amount }, card);
+      }
+      if (effect.op === "if_self_status" && (fighter.statuses[effect.status] || 0) > 0) {
+        runEffect(fighter, { op: effect.op2, amount: effect.amount }, card);
+      }
+    }
+
+    function triggerCard(fighter, card) {
+      addLog(`${fighter.name} 的牌链触发 <span class="card-ref" data-tip="${escapeHtml(cardTooltip(card))}">${escapeHtml(card.Name)}</span>`);
+      for (const effect of card.Effects) runEffect(fighter, effect, card);
+    }
+
+    function drawNext(fighter) {
+      if (fighter.deck.length === 0) {
+        if (fighter.pending.length > 0) {
+          sealChain(fighter);
+        }
+        if (fighter.discard.length === 0) {
+          fighter.phase = "idle";
+          fighter.timer = 0;
+          fighter.timerMax = 0;
+          addLog(`${fighter.name} 牌库已空，之后只由已封装牌链继续战斗`);
+          return;
+        }
+        fighter.phase = "shuffle";
+        fighter.timer = Number(config.ShuffleTimeT || 1);
+        fighter.timerMax = fighter.timer;
+        addLog(`${fighter.name} 开始洗牌`);
+        return;
+      }
+      fighter.current = fighter.deck.pop();
+      fighter.phase = "decision";
+      fighter.timer = Number(config.DrawTimeT || 1);
+      fighter.timerMax = fighter.timer;
+      addLog(`${fighter.name} 抽到 <span class="card-ref" data-tip="${escapeHtml(cardTooltip(fighter.current))}">${escapeHtml(fighter.current.Name)}</span>`);
+      if (fighter.side === "enemy") {
+        const willCompile = enemyShouldCompile(fighter, fighter.current);
+        if (willCompile) chooseCompile(fighter);
+        else chooseDiscard(fighter);
+      }
+    }
+
+    function chooseCompile(fighter) {
+      if (!fighter.current || fighter.phase !== "decision") return;
+      fighter.phase = "play";
+      fighter.timer = Number(fighter.current.PlayTimeT);
+      fighter.timerMax = fighter.timer;
+      addLog(`${fighter.name} 开始编入 <span class="card-ref" data-tip="${escapeHtml(cardTooltip(fighter.current))}">${escapeHtml(fighter.current.Name)}</span>`);
+    }
+
+    function chooseDiscard(fighter) {
+      if (!fighter.current || fighter.phase !== "decision") return;
+      addLog(`${fighter.name} 弃置 ${escapeHtml(fighter.current.Name)}`);
+      fighter.discard.push(fighter.current);
+      fighter.current = null;
+      fighter.phase = "draw";
+      fighter.timer = Number(config.DrawTimeT || 1);
+      fighter.timerMax = fighter.timer;
+    }
+
+    function sealChain(fighter) {
+      if (!fighter.pending.length) return;
+      const chain = {
+        id: state.chainId++,
+        cards: [...fighter.pending],
+        index: 0,
+        timer: Number(fighter.pending[0].PlayTimeT),
+        timerMax: Number(fighter.pending[0].PlayTimeT)
+      };
+      fighter.chains.push(chain);
+      addLog(`${fighter.name} 封装牌链：${fighter.pending.map((card) => escapeHtml(card.Name)).join(" -> ")}`);
+      fighter.pending = [];
+    }
+
+    function enemyShouldCompile(fighter, card) {
+      if (fighter.pending.length >= 3) return false;
+      if (fighter.style && card.Archetype === fighter.style) return true;
+      if (fighter.hp < fighter.maxHp * 0.45 && /防御|治疗|护盾/.test(card.Tags)) return true;
+      if (fighter.pending.length === 0) return true;
+      return Math.random() > 0.35;
+    }
+
+    function enemyMaybeSeal(fighter) {
+      if (!fighter.pending.length) return;
+      const hasStyle = fighter.pending.some((card) => card.Archetype === fighter.style);
+      if (fighter.pending.length >= 3 || (fighter.pending.length >= 2 && hasStyle && Math.random() > 0.75)) {
+        sealChain(fighter);
+      }
+    }
+
+    function updateFighter(fighter, dt) {
+      if (state.battleOver) return;
+      updateStatuses(fighter, dt);
+      updateChains(fighter, dt);
+      if (fighter.phase === "idle") {
+        if (fighter.discard.length > 0) {
+          fighter.phase = "shuffle";
+          fighter.timer = Number(config.ShuffleTimeT || 1);
+          fighter.timerMax = fighter.timer;
+        }
+        return;
+      }
+      fighter.timer -= dt;
+      if (fighter.phase === "draw" && fighter.timer <= 0) drawNext(fighter);
+      else if (fighter.phase === "shuffle" && fighter.timer <= 0) {
+        fighter.deck = shuffle(fighter.discard);
+        fighter.discard = [];
+        fighter.phase = "draw";
+        fighter.timer = Number(config.DrawTimeT || 1);
+        fighter.timerMax = fighter.timer;
+        addLog(`${fighter.name} 洗牌完成`);
+      } else if (fighter.phase === "decision" && fighter.timer <= 0) {
+        chooseCompile(fighter);
+      } else if (fighter.phase === "play" && fighter.timer <= 0) {
+        fighter.pending.push(fighter.current);
+        addLog(`${fighter.name} 将 ${escapeHtml(fighter.current.Name)} 编入待封装区`);
+        fighter.current = null;
+        fighter.phase = "draw";
+        fighter.timer = Number(config.DrawTimeT || 1);
+        fighter.timerMax = fighter.timer;
+        if (fighter.side === "enemy") enemyMaybeSeal(fighter);
+      }
+    }
+
+    function updateChains(fighter, dt) {
+      for (const chain of fighter.chains) {
+        if (!chain.cards.length) continue;
+        chain.timer -= dt;
+        while (chain.timer <= 0 && !state.battleOver) {
+          const card = chain.cards[chain.index];
+          triggerCard(fighter, card);
+          chain.index = (chain.index + 1) % chain.cards.length;
+          chain.timerMax = Number(chain.cards[chain.index].PlayTimeT);
+          chain.timer += chain.timerMax;
+        }
+      }
+    }
+
+    function updateStatuses(fighter, dt) {
+      fighter.statusTimer -= dt;
+      if (fighter.statusTimer > 0) return;
+      fighter.statusTimer += Number(config.StatusTickT || 2.5);
+      const self = fighter;
+      if ((self.statuses.burn || 0) > 0) {
+        dealDamage(opponent(self), self, self.statuses.burn, "自然燃烧，");
+        self.statuses.burn = Math.max(0, self.statuses.burn - 1);
+      }
+      if ((self.statuses.poison || 0) > 0) {
+        dealDamage(opponent(self), self, self.statuses.poison, "自然中毒，");
+        self.statuses.poison = Math.max(0, self.statuses.poison - 1);
+      }
+    }
+
+    function endBattle(winner) {
+      if (state.battleOver) return;
+      state.battleOver = true;
+      state.winnerName = winner.name;
+      for (const fighter of Object.values(state.fighters)) {
+        fighter.phase = "ended";
+        fighter.current = null;
+        fighter.timer = 0;
+        fighter.timerMax = 0;
+      }
+      addLog(`${winner.name} 获胜，战斗结束`);
+      $("winnerTitle").textContent = `${winner.name} 胜利`;
+      $("winner").classList.add("show");
+      renderAll();
+    }
+
+    function floatAt(side, text, kind) {
+      const field = $(`${side}Field`);
+      const rect = field.getBoundingClientRect();
+      const el = document.createElement("div");
+      el.className = `float-text ${kind}`;
+      el.textContent = text;
+      el.style.left = `${rect.left + rect.width * 0.5}px`;
+      el.style.top = `${rect.top + rect.height * 0.42}px`;
+      $("floatLayer").appendChild(el);
+      window.setTimeout(() => el.remove(), 800);
+    }
+
+    function openViewer(title, list) {
+      $("viewerTitle").textContent = title;
+      if (!list.length) {
+        $("viewerBody").innerHTML = `<p>没有牌。</p>`;
+      } else {
+        $("viewerBody").innerHTML = list.map((card) => cardHtml(card, "small")).join("");
+      }
+      $("viewer").classList.add("show");
+    }
+
+    function setupEvents() {
+      document.querySelectorAll("[data-speed]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.mode = "realtime";
+          state.speed = Number(btn.dataset.speed);
+          state.paused = false;
+          state.last = performance.now();
+          $("pauseBtn").textContent = "暂停";
+          document.querySelectorAll("[data-speed]").forEach((item) => item.classList.toggle("active", item === btn));
+          $("turnModeBtn").classList.remove("active");
+        });
+      });
+      $("turnModeBtn").addEventListener("click", () => {
+        state.mode = "turn";
+        state.speed = 1;
+        state.last = performance.now();
+        document.querySelectorAll("[data-speed]").forEach((item) => item.classList.remove("active"));
+        $("turnModeBtn").classList.add("active");
+      });
+      $("pauseBtn").addEventListener("click", () => {
+        state.paused = !state.paused;
+        $("pauseBtn").textContent = state.paused ? "继续" : "暂停";
+      });
+      $("newBattleBtn").addEventListener("click", startBattle);
+      $("winnerNew").addEventListener("click", () => {
+        $("winner").classList.remove("show");
+        startBattle();
+      });
+      $("compileBtn").addEventListener("click", () => chooseCompile(state.fighters.player));
+      $("discardBtn").addEventListener("click", () => chooseDiscard(state.fighters.player));
+      $("sealBtn").addEventListener("click", () => sealChain(state.fighters.player));
+      $("viewerClose").addEventListener("click", () => $("viewer").classList.remove("show"));
+      $("viewer").addEventListener("click", (event) => {
+        if (event.target === $("viewer")) $("viewer").classList.remove("show");
+      });
+      document.querySelectorAll(".pile").forEach((pile) => {
+        pile.addEventListener("click", () => {
+          const fighter = state.fighters[pile.dataset.side];
+          const list = pile.dataset.pile === "deck" ? [...fighter.deck].reverse() : [...fighter.discard].reverse();
+          openViewer(`${fighter.name} ${pile.dataset.pile === "deck" ? "抽牌堆" : "弃牌堆"}`, list);
+        });
+      });
+      document.addEventListener("mouseover", showTip);
+      document.addEventListener("mouseout", hideTip);
+      document.addEventListener("mousemove", moveTip);
+      document.addEventListener("keydown", (event) => {
+        if (event.key === " ") {
+          event.preventDefault();
+          $("pauseBtn").click();
+        }
+        if (event.key.toLowerCase() === "r") startBattle();
+        if (event.key.toLowerCase() === "f") sealChain(state.fighters.player);
+        if (event.key === "0") $("turnModeBtn").click();
+      });
+    }
+
+    function showTip(event) {
+      const target = event.target.closest("[data-tip]");
+      if (!target) return;
+      $("tooltip").innerHTML = target.dataset.tip;
+      $("tooltip").classList.add("show");
+      moveTip(event);
+    }
+
+    function hideTip(event) {
+      if (!event.target.closest("[data-tip]")) $("tooltip").classList.remove("show");
+    }
+
+    function moveTip(event) {
+      if (!$("tooltip").classList.contains("show")) return;
+      const margin = 14;
+      const rect = $("tooltip").getBoundingClientRect();
+      let x = event.clientX + margin;
+      let y = event.clientY + margin;
+      if (x + rect.width > innerWidth) x = event.clientX - rect.width - margin;
+      if (y + rect.height > innerHeight) y = event.clientY - rect.height - margin;
+      $("tooltip").style.left = `${Math.max(8, x)}px`;
+      $("tooltip").style.top = `${Math.max(8, y)}px`;
+    }
+
+    function startBattle() {
+      const picked = pickCharacters();
+      state.fighters = {
+        player: createFighter(picked.player, "player"),
+        enemy: createFighter(picked.enemy, "enemy")
+      };
+      state.log = [];
+      state.battleOver = false;
+      state.winnerName = "";
+      state.chainId = 1;
+      state.renderCache.clear();
+      $("winner").classList.remove("show");
+      addLog(`${state.fighters.player.name} 对战 ${state.fighters.enemy.name}`);
+      renderAll();
+    }
+
+    function loop(now) {
+      const raw = Math.min(0.08, (now - state.last) / 1000);
+      state.last = now;
+      if (!state.paused && !state.battleOver) {
+        const turnHold = state.mode === "turn" && state.fighters.player?.phase === "decision" && state.fighters.player?.current;
+        const dt = turnHold ? 0 : raw * state.speed;
+        updateFighter(state.fighters.player, dt);
+        updateFighter(state.fighters.enemy, dt);
+      }
+      renderAll();
+      requestAnimationFrame(loop);
+    }
+
+    setupEvents();
+    startBattle();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
