@@ -1,0 +1,1496 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Draw Fight 004 MVP</title>
+  <style>
+    :root {
+      --bg: #f4f6fa;
+      --panel: #ffffff;
+      --ink: #17202c;
+      --muted: #687789;
+      --line: #d9e2ec;
+      --accent: #e95b67;
+      --accent-2: #2f8f83;
+      --blue: #86aaf0;
+      --green: #68c16f;
+      --yellow: #ffd56a;
+      --orange: #f2a35b;
+      --shadow: 0 16px 38px rgba(33, 45, 64, 0.11);
+      --card-art: url("Texture/卡面.png");
+      --back-art: url("Texture/卡背.png");
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    body {
+      overflow-x: hidden;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .topbar {
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.94);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(10px);
+    }
+
+    .title {
+      min-width: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0;
+      white-space: nowrap;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .battle-state {
+      border-radius: 999px;
+      background: #eff6ff;
+      border: 1px solid #c7d8ee;
+      color: #315b88;
+      padding: 4px 10px;
+      font-size: 13px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .battle-state.ended {
+      background: #fff2f3;
+      border-color: #f1a7b0;
+      color: #c93d4a;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .controls button,
+    .strategy-buttons button {
+      min-height: 38px;
+      border: 1px solid #cad5e2;
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      padding: 0 14px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
+    }
+
+    .controls button:hover,
+    .strategy-buttons button:hover {
+      transform: translateY(-1px);
+      border-color: #aebdca;
+    }
+
+    .controls button.active,
+    .strategy-buttons button.active,
+    .controls button.primary {
+      background: #263241;
+      border-color: #263241;
+      color: #fff;
+    }
+
+    .controls button.danger {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .battle {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) 5px minmax(0, 1fr);
+      height: calc(100vh - 56px);
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .divider {
+      background: #858a92;
+    }
+
+    .field {
+      display: grid;
+      grid-template-columns: minmax(190px, 220px) minmax(300px, 360px) minmax(250px, 0.82fr) minmax(380px, 1.18fr);
+      gap: 14px;
+      padding: 16px clamp(12px, 2vw, 28px);
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      max-height: 100%;
+      overflow: hidden;
+      align-items: stretch;
+    }
+
+    .field.enemy {
+      grid-template-columns: minmax(380px, 1.18fr) minmax(250px, 0.82fr) minmax(300px, 360px) minmax(190px, 220px);
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.75);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      min-width: 0;
+      box-shadow: var(--shadow);
+    }
+
+    .unit-panel {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      min-width: 0;
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .field > * {
+      min-height: 0;
+    }
+
+    .portrait {
+      aspect-ratio: 1.35 / 1;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #89aef4, #7e99e9);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 18px;
+      font-size: clamp(22px, 2.6vw, 30px);
+      font-weight: 1000;
+      line-height: 1.25;
+      box-shadow: 0 14px 34px rgba(69, 103, 177, 0.22);
+    }
+
+    .enemy .portrait {
+      background: linear-gradient(135deg, #ee80ad, #df669d);
+      box-shadow: 0 14px 34px rgba(205, 90, 139, 0.22);
+    }
+
+    .unit-info h2 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    .unit-info p {
+      margin: 0;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .hpbar {
+      height: 16px;
+      border: 1px solid #b8c7d6;
+      background: #e9eff5;
+      border-radius: 5px;
+      overflow: hidden;
+      margin: 10px 0 6px;
+    }
+
+    .hpfill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #25b874, #94d84e);
+      transform-origin: left center;
+      transition: transform 220ms ease;
+    }
+
+    .hptext {
+      font-weight: 1000;
+    }
+
+    .status-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-height: 30px;
+      align-content: flex-start;
+    }
+
+    .pill {
+      border: 1px solid #bdd1ea;
+      background: #eef6ff;
+      color: #315b88;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .pill.danger {
+      border-color: #f0b1ba;
+      background: #fff3f4;
+      color: #c93d4a;
+    }
+
+    .logic-panel,
+    .pending-panel,
+    .chain-panel {
+      padding: 12px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 10px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .panel-title h3 {
+      margin: 0;
+      color: var(--accent);
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    .panel-title span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .logic-body {
+      display: grid;
+      grid-template-rows: auto auto auto minmax(0, 1fr);
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .strategy-card,
+    .rule-card {
+      border: 1px solid #dbe4ee;
+      background: #fff;
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .strategy-card strong,
+    .rule-card strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 16px;
+    }
+
+    .strategy-card p,
+    .rule-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .progress {
+      position: relative;
+      height: 26px;
+      overflow: hidden;
+      border-radius: 5px;
+      background: #edf1f6;
+      border: 1px solid #c8d4e0;
+    }
+
+    .progress > i {
+      display: block;
+      height: 100%;
+      width: 100%;
+      transform-origin: left center;
+      background: linear-gradient(90deg, var(--accent), var(--yellow));
+      transform: scaleX(0);
+    }
+
+    .progress > span {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 1000;
+    }
+
+    .drawn-area {
+      min-height: 0;
+      overflow: auto;
+      border: 1px dashed #cdd8e5;
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(248, 251, 255, 0.75);
+    }
+
+    .drawn-title {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 1000;
+    }
+
+    .drawn-row,
+    .pending-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+
+    .pending-body,
+    .chain-body {
+      min-height: 0;
+      overflow: auto;
+      border: 1px dashed #cbd7e4;
+      border-radius: 8px;
+      background: rgba(247, 250, 254, 0.84);
+      padding: 10px;
+    }
+
+    .empty {
+      min-height: 100%;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      text-align: center;
+      font-weight: 900;
+      line-height: 1.55;
+      padding: 18px;
+    }
+
+    .rule-meter {
+      display: grid;
+      gap: 5px;
+      margin-top: 9px;
+    }
+
+    .rule-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .mini-card {
+      --w: 74px;
+      width: var(--w);
+      aspect-ratio: 356 / 580;
+      position: relative;
+      flex: 0 0 auto;
+      border-radius: 7px;
+      overflow: hidden;
+      background-image: var(--card-art);
+      background-size: cover;
+      box-shadow: 0 8px 18px rgba(20, 28, 40, 0.16);
+    }
+
+    .mini-card.chosen {
+      outline: 3px solid rgba(47, 143, 131, 0.78);
+    }
+
+    .mini-card.discarded {
+      filter: grayscale(0.72);
+      opacity: 0.66;
+    }
+
+    .mini-card.active {
+      box-shadow: 0 0 0 3px rgba(233, 91, 103, 0.52), 0 12px 28px rgba(233, 91, 103, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .mini-title {
+      position: absolute;
+      left: 12%;
+      right: 12%;
+      top: 8%;
+      text-align: center;
+      color: #f6efff;
+      font-size: clamp(8px, calc(var(--w) * 0.12), 11px);
+      font-weight: 1000;
+      line-height: 1.12;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+    }
+
+    .mini-desc {
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      bottom: 8%;
+      height: 25%;
+      color: #fff5d8;
+      font-size: clamp(6px, calc(var(--w) * 0.085), 9px);
+      line-height: 1.24;
+      font-weight: 900;
+      overflow: hidden;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+    }
+
+    .mini-meta {
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      bottom: 34%;
+      color: #ffe486;
+      font-size: clamp(6px, calc(var(--w) * 0.08), 8px);
+      font-weight: 1000;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+    }
+
+    .reason {
+      width: var(--w);
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.3;
+    }
+
+    .card-wrap {
+      flex: 0 0 auto;
+    }
+
+    .card-preview {
+      --preview-w: clamp(190px, 17vw, 260px);
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 80;
+      width: var(--preview-w);
+      opacity: 0;
+      pointer-events: none;
+      transform: translate3d(var(--preview-x, 0), var(--preview-y, 0), 0) scale(var(--preview-scale, 1));
+      transform-origin: top left;
+      transition: opacity 110ms ease, transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      filter: drop-shadow(0 22px 36px rgba(17, 27, 40, 0.28));
+    }
+
+    .card-preview.visible {
+      opacity: 1;
+    }
+
+    .preview-card {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 356 / 580;
+      overflow: hidden;
+      border-radius: 13px;
+      background-image: var(--card-art);
+      background-size: cover;
+    }
+
+    .preview-title {
+      position: absolute;
+      left: 12%;
+      right: 12%;
+      top: 9.2%;
+      text-align: center;
+      color: #f6efff;
+      font-size: clamp(17px, calc(var(--preview-w) * 0.082), 22px);
+      font-weight: 1000;
+      line-height: 1.12;
+      text-shadow: 0 2px 3px rgba(0, 0, 0, 0.78);
+    }
+
+    .preview-meta {
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      bottom: 34%;
+      color: #ffe486;
+      font-size: clamp(10px, calc(var(--preview-w) * 0.043), 12px);
+      font-weight: 1000;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-shadow: 0 2px 3px rgba(0, 0, 0, 0.78);
+    }
+
+    .preview-desc {
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      bottom: 8%;
+      height: 25%;
+      color: #fff5d8;
+      font-size: clamp(12px, calc(var(--preview-w) * 0.052), 14px);
+      line-height: 1.42;
+      font-weight: 900;
+      overflow: auto;
+      text-shadow: 0 2px 3px rgba(0, 0, 0, 0.78);
+      scrollbar-width: thin;
+    }
+
+    .chain {
+      border: 1px solid #dbe4ee;
+      background: #fff;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .chain-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+      margin-bottom: 8px;
+      font-weight: 1000;
+    }
+
+    .chain-head span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .chain-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .strategy-buttons {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 8px;
+      padding-top: 6px;
+      border-top: 1px solid var(--line);
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .strategy-buttons button {
+      min-height: 32px;
+      padding: 0 10px;
+      white-space: nowrap;
+    }
+
+    .log {
+      height: 58px;
+      overflow: auto;
+      border-top: 1px solid var(--line);
+      padding-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+      font-weight: 800;
+    }
+
+    .log b {
+      color: var(--ink);
+    }
+
+    @media (max-width: 1180px) {
+      .battle {
+        display: block;
+        height: auto;
+        overflow: visible;
+      }
+
+      .divider {
+        height: 5px;
+      }
+
+      .field,
+      .field.enemy {
+        grid-template-columns: minmax(160px, 0.8fr) minmax(270px, 1.2fr);
+        min-height: 760px;
+        overflow: visible;
+      }
+
+      .field.enemy .chain-panel {
+        order: 4;
+      }
+
+      .field.enemy .pending-panel {
+        order: 3;
+      }
+
+      .field.enemy .logic-panel {
+        order: 2;
+      }
+
+      .field.enemy .unit-panel {
+        order: 1;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .controls {
+        justify-content: flex-start;
+      }
+
+      .field,
+      .field.enemy {
+        grid-template-columns: 1fr;
+        min-height: auto;
+        overflow: visible;
+      }
+
+      .portrait {
+        aspect-ratio: 3 / 1;
+      }
+
+      .panel {
+        min-height: 260px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="title">
+        <h1>Fight 004</h1>
+        <div class="subtitle">抽牌策略 + 自动封装牌链</div>
+        <div id="battleState" class="battle-state">运行中</div>
+      </div>
+      <div class="controls" aria-label="战斗控制">
+        <button data-speed="0.1">0.1x</button>
+        <button data-speed="0.5">0.5x</button>
+        <button data-speed="1">1x</button>
+        <button data-speed="2">2x</button>
+        <button data-speed="3">3x</button>
+        <button data-speed="5">5x</button>
+        <button id="pauseBtn">暂停</button>
+        <button id="newBattleBtn" class="danger">新战斗</button>
+      </div>
+    </header>
+
+    <main class="battle">
+      <section class="field enemy" aria-label="敌方战场">
+        <div id="enemyChains" class="panel chain-panel"></div>
+        <div id="enemyPending" class="panel pending-panel"></div>
+        <div id="enemyLogic" class="panel logic-panel"></div>
+        <div id="enemyUnit" class="unit-panel"></div>
+      </section>
+
+      <div class="divider" aria-hidden="true"></div>
+
+      <section class="field player" aria-label="玩家战场">
+        <div id="playerUnit" class="unit-panel"></div>
+        <div id="playerLogic" class="panel logic-panel"></div>
+        <div id="playerPending" class="panel pending-panel"></div>
+        <div id="playerChains" class="panel chain-panel"></div>
+      </section>
+    </main>
+  </div>
+  <div id="cardPreview" class="card-preview" aria-hidden="true"></div>
+
+  <script src="data/game_data.js"></script>
+  <script>
+    const DATA = window.BATTLE_DATA;
+    const cardById = Object.fromEntries(DATA.cards.map(card => [card.CardID, card]));
+    const strategyById = Object.fromEntries(DATA.strategies.map(strategy => [strategy.StrategyID, strategy]));
+    const ruleById = Object.fromEntries(DATA.packagingRules.map(rule => [rule.RuleID, rule]));
+    const config = Object.fromEntries(DATA.config.map(item => [item.Key, Number(item.Value) || item.Value]));
+    const speeds = [0.1, 0.5, 1, 2, 3, 5];
+    const statusLabels = {
+      burn: "燃烧",
+      poison: "中毒",
+      bleed: "裂伤",
+      block: "护盾",
+      focus: "专注",
+      charge: "蓄力"
+    };
+    const state = {
+      speed: config.StartingSpeed || 1,
+      paused: false,
+      ended: false,
+      winner: "",
+      time: 0,
+      actors: {},
+      log: []
+    };
+    window.__fight004 = state;
+
+    function randomId(prefix) {
+      return prefix + "-" + Math.random().toString(36).slice(2, 9);
+    }
+
+    function shuffle(items) {
+      const list = [...items];
+      for (let index = list.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [list[index], list[swapIndex]] = [list[swapIndex], list[index]];
+      }
+      return list;
+    }
+
+    function makeDeck(deckList) {
+      const cards = [];
+      for (const [cardId, count] of Object.entries(deckList)) {
+        for (let index = 0; index < count; index += 1) {
+          cards.push({ uid: randomId(cardId), cardId });
+        }
+      }
+      return shuffle(cards);
+    }
+
+    function pickCharacters() {
+      const playerPool = DATA.characters.filter(character => character.CharacterID === "R001" || character.CharacterID === "R002");
+      const player = playerPool[Math.floor(Math.random() * playerPool.length)];
+      const enemies = DATA.characters.filter(character => character.CharacterID !== player.CharacterID);
+      const enemy = enemies[Math.floor(Math.random() * enemies.length)];
+      return { player, enemy };
+    }
+
+    function createActor(character, side) {
+      return {
+        side,
+        character,
+        hp: Number(character.HP),
+        maxHp: Number(character.HP),
+        strategyId: character.DefaultStrategyID,
+        ruleId: character.PackagingRuleID,
+        drawPile: makeDeck(character.DeckList),
+        discardPile: [],
+        pending: [],
+        chains: [],
+        statuses: {},
+        phase: makePhase("draw", config.DrawTimeT, "抽牌中"),
+        drawn: [],
+        lastDecision: [],
+        compileQueue: [],
+        statusTimer: config.StatusTickT,
+        chainCounter: 1
+      };
+    }
+
+    function makePhase(type, duration, label, cardInst = null) {
+      return {
+        type,
+        duration,
+        timer: duration,
+        label,
+        cardInst
+      };
+    }
+
+    function actorName(actor) {
+      return actor.character.Name;
+    }
+
+    function log(text) {
+      state.log.unshift(text);
+      state.log = state.log.slice(0, 80);
+    }
+
+    function resetBattle() {
+      const picks = pickCharacters();
+      state.time = 0;
+      state.ended = false;
+      state.winner = "";
+      state.paused = false;
+      state.log = [];
+      state.actors.player = createActor(picks.player, "player");
+      state.actors.enemy = createActor(picks.enemy, "enemy");
+      log(`<b>${actorName(state.actors.player)}</b> 对阵 <b>${actorName(state.actors.enemy)}</b>。`);
+      render();
+    }
+
+    function other(actor) {
+      return actor.side === "player" ? state.actors.enemy : state.actors.player;
+    }
+
+    function cardOf(inst) {
+      return cardById[inst.cardId];
+    }
+
+    function tagsOf(card) {
+      return String(card.Tags || "").split(";").filter(Boolean);
+    }
+
+    function hasAnyTag(card, tags) {
+      const source = tagsOf(card);
+      return tags.some(tag => source.includes(tag));
+    }
+
+    function strategyTags(strategy) {
+      return String(strategy.PriorityTags || "").split(";").filter(Boolean);
+    }
+
+    function rejectTags(strategy) {
+      return String(strategy.RejectTags || "").split(";").filter(Boolean);
+    }
+
+    function evaluateStrategy(actor, drawn) {
+      const strategy = strategyById[actor.strategyId];
+      const priority = strategyTags(strategy);
+      const rejected = rejectTags(strategy);
+      const pickLimit = Number(strategy.PickLimit) || 1;
+      let candidates = [...drawn];
+
+      if (strategy.Mode === "low_hp_defense") {
+        const low = actor.hp / actor.maxHp <= 0.5;
+        const wanted = low ? ["护盾", "治疗"] : ["伤害", "爆发"];
+        candidates = drawn.filter(inst => hasAnyTag(cardOf(inst), wanted));
+      } else if (strategy.Mode === "tags" && priority.length) {
+        candidates = drawn
+          .filter(inst => hasAnyTag(cardOf(inst), priority))
+          .filter(inst => !hasAnyTag(cardOf(inst), rejected));
+      }
+
+      if (strategy.Mode === "first") {
+        candidates = drawn.slice(0, pickLimit);
+      }
+
+      const chosen = candidates.slice(0, pickLimit);
+      const chosenSet = new Set(chosen.map(inst => inst.uid));
+      const decisions = drawn.map(inst => {
+        const card = cardOf(inst);
+        const picked = chosenSet.has(inst.uid);
+        let reason = picked ? "策略编入" : "策略弃置";
+        if (!picked && rejected.length && hasAnyTag(card, rejected)) reason = "标签不匹配";
+        if (!picked && strategy.Mode === "tags" && priority.length && !hasAnyTag(card, priority)) reason = "非目标组件";
+        return { inst, picked, reason };
+      });
+      return { chosen, decisions };
+    }
+
+    function startDraw(actor) {
+      actor.phase = makePhase("draw", config.DrawTimeT, "抽牌中");
+    }
+
+    function startShuffle(actor) {
+      actor.phase = makePhase("shuffle", config.ShuffleTimeT, "洗牌中");
+      log(`<b>${actorName(actor)}</b> 洗牌。`);
+    }
+
+    function drawOne(actor) {
+      if (actor.drawPile.length === 0 && actor.discardPile.length > 0) {
+        actor.drawPile = shuffle(actor.discardPile);
+        actor.discardPile = [];
+        log(`<b>${actorName(actor)}</b> 将弃牌堆洗回抽牌堆。`);
+      }
+      return actor.drawPile.pop() || null;
+    }
+
+    function updateActor(actor, dt) {
+      if (actor.hp <= 0) return;
+      const enemy = other(actor);
+      actor.statusTimer -= dt;
+      if (actor.statusTimer <= 0) {
+        actor.statusTimer += config.StatusTickT;
+        tickStatuses(actor);
+      }
+      updateChains(actor, enemy, dt);
+      updatePhase(actor, enemy, dt);
+    }
+
+    function updatePhase(actor, enemy, dt) {
+      const phase = actor.phase;
+      phase.timer -= dt;
+      if (phase.timer > 0) return;
+
+      if (phase.type === "shuffle") {
+        actor.drawPile = shuffle(actor.discardPile);
+        actor.discardPile = [];
+        startDraw(actor);
+        return;
+      }
+
+      if (phase.type === "draw") {
+        if (actor.drawPile.length === 0 && actor.discardPile.length > 0) {
+          startShuffle(actor);
+          return;
+        }
+        const strategy = strategyById[actor.strategyId];
+        const drawn = [];
+        for (let index = 0; index < Number(strategy.DrawCount); index += 1) {
+          const inst = drawOne(actor);
+          if (inst) drawn.push(inst);
+        }
+        actor.drawn = drawn;
+        if (drawn.length === 0) {
+          startDraw(actor);
+          return;
+        }
+        const result = evaluateStrategy(actor, drawn);
+        actor.lastDecision = result.decisions;
+        actor.compileQueue = [...result.chosen];
+        const chosenSet = new Set(result.chosen.map(inst => inst.uid));
+        drawn.forEach(inst => {
+          if (!chosenSet.has(inst.uid)) actor.discardPile.push(inst);
+        });
+        const names = drawn.map(inst => cardOf(inst).Name).join("、");
+        const chosen = result.chosen.map(inst => cardOf(inst).Name).join("、") || "无";
+        log(`<b>${actorName(actor)}</b> 执行「${strategy.Name}」抽到 ${names}，编入 ${chosen}。`);
+        actor.phase = makePhase("strategy", config.StrategyThinkT, "策略判断");
+        return;
+      }
+
+      if (phase.type === "strategy") {
+        const next = actor.compileQueue.shift();
+        if (next) {
+          const card = cardOf(next);
+          actor.phase = makePhase("compile", Number(card.PlayTimeT), `编入 ${card.Name}`, next);
+        } else {
+          startDraw(actor);
+        }
+        return;
+      }
+
+      if (phase.type === "compile") {
+        const inst = phase.cardInst;
+        const card = cardOf(inst);
+        actor.pending.push(inst);
+        log(`<b>${actorName(actor)}</b> 编入 <b>${card.Name}</b>。`);
+        trySeal(actor);
+        const next = actor.compileQueue.shift();
+        if (next) {
+          const nextCard = cardOf(next);
+          actor.phase = makePhase("compile", Number(nextCard.PlayTimeT), `编入 ${nextCard.Name}`, next);
+        } else {
+          startDraw(actor);
+        }
+      }
+    }
+
+    function trySeal(actor) {
+      const rule = ruleById[actor.ruleId];
+      if (!actor.pending.length) return false;
+      const current = packagingValue(actor);
+      if (current < Number(rule.Threshold)) return false;
+      const cards = actor.pending.splice(0);
+      const chain = {
+        id: actor.chainCounter++,
+        cards,
+        index: 0,
+        current: null,
+        timer: 0,
+        duration: 0
+      };
+      actor.chains.push(chain);
+      log(`<b>${actorName(actor)}</b> 满足「${rule.Name}」，自动封装 链${chain.id}：${cards.map(inst => cardOf(inst).Name).join(" -> ")}。`);
+      return true;
+    }
+
+    function packagingValue(actor) {
+      const rule = ruleById[actor.ruleId];
+      if (rule.Type === "cost") {
+        return actor.pending.reduce((sum, inst) => sum + Number(cardOf(inst).Cost || 0), 0);
+      }
+      return actor.pending.length;
+    }
+
+    function updateChains(actor, enemy, dt) {
+      actor.chains.forEach(chain => {
+        if (!chain.cards.length) return;
+        if (!chain.current) {
+          chain.current = chain.cards[chain.index];
+          chain.duration = Number(cardOf(chain.current).PlayTimeT);
+          chain.timer = chain.duration;
+        }
+        chain.timer -= dt;
+        if (chain.timer <= 0) {
+          const inst = chain.current;
+          const card = cardOf(inst);
+          applyCard(actor, enemy, card);
+          log(`<b>${actorName(actor)}</b> 的链${chain.id}触发 <b>${card.Name}</b>。`);
+          chain.index = (chain.index + 1) % chain.cards.length;
+          chain.current = null;
+          chain.timer = 0;
+          chain.duration = 0;
+        }
+      });
+    }
+
+    function addStatus(actor, status, amount) {
+      actor.statuses[status] = Math.max(0, (actor.statuses[status] || 0) + amount);
+    }
+
+    function heal(actor, amount) {
+      actor.hp = Math.min(actor.maxHp, actor.hp + amount);
+    }
+
+    function dealDamage(source, target, amount) {
+      let final = amount;
+      if ((source.statuses.focus || 0) > 0) {
+        final += 2;
+        source.statuses.focus -= 1;
+      }
+      const block = target.statuses.block || 0;
+      const absorbed = Math.min(block, final);
+      target.statuses.block = block - absorbed;
+      final -= absorbed;
+      target.hp = Math.max(0, target.hp - final);
+      if (target.hp <= 0 && !state.ended) {
+        state.ended = true;
+        state.winner = actorName(source);
+        log(`<b>${actorName(source)}</b> 获胜。`);
+      }
+    }
+
+    function runSimpleOp(source, target, op, amount) {
+      if (op === "damage") dealDamage(source, target, amount);
+      if (op === "block") addStatus(source, "block", amount);
+      if (op === "heal") heal(source, amount);
+      if (op === "status") addStatus(target, "burn", amount);
+    }
+
+    function applyCard(source, target, card) {
+      card.Effects.forEach(effect => {
+        if (effect.op === "damage") dealDamage(source, target, Number(effect.amount));
+        if (effect.op === "block") addStatus(source, "block", Number(effect.amount));
+        if (effect.op === "heal") heal(source, Number(effect.amount));
+        if (effect.op === "status") {
+          addStatus(effect.target === "self" ? source : target, effect.status, Number(effect.amount));
+        }
+        if (effect.op === "if_enemy_status" && (target.statuses[effect.status] || 0) > 0) {
+          runSimpleOp(source, target, effect.op2, Number(effect.amount));
+        }
+        if (effect.op === "if_enemy_status" && !(target.statuses[effect.status] || 0) && effect.else_op === "status") {
+          addStatus(target, effect.status, Number(effect.else_amount || effect.amount || 1));
+        }
+        if (effect.op === "if_self_status" && (source.statuses[effect.status] || 0) > 0) {
+          runSimpleOp(source, target, effect.op2, Number(effect.amount));
+        }
+        if (effect.op === "burn_damage") {
+          dealDamage(source, target, (target.statuses.burn || 0) * Number(effect.per));
+        }
+        if (effect.op === "bleed_damage") {
+          dealDamage(source, target, (target.statuses.bleed || 0) * Number(effect.per));
+        }
+        if (effect.op === "ignite") {
+          const burn = target.statuses.burn || 0;
+          dealDamage(source, target, burn * Number(effect.per));
+          target.statuses.burn = 0;
+        }
+        if (effect.op === "poison_burst") {
+          const poison = target.statuses.poison || 0;
+          dealDamage(source, target, poison * Number(effect.per));
+          target.statuses.poison = 0;
+        }
+        if (effect.op === "block_strike") {
+          dealDamage(source, target, Math.floor((source.statuses.block || 0) * Number(effect.ratio)));
+        }
+        if (effect.op === "cleanse") {
+          source.statuses.burn = 0;
+          source.statuses.poison = 0;
+          source.statuses.bleed = 0;
+        }
+        if (effect.op === "charge_damage") {
+          const charge = source.statuses.charge || 0;
+          dealDamage(source, target, charge * Number(effect.per));
+          source.statuses.charge = 0;
+        }
+      });
+    }
+
+    function tickStatuses(actor) {
+      const self = actor;
+      if ((self.statuses.burn || 0) > 0) {
+        dealDamage(other(self), self, self.statuses.burn);
+        self.statuses.burn -= 1;
+      }
+      if ((self.statuses.poison || 0) > 0) {
+        dealDamage(other(self), self, self.statuses.poison);
+        self.statuses.poison -= 1;
+      }
+      if ((self.statuses.bleed || 0) > 0) {
+        dealDamage(other(self), self, Math.ceil(self.statuses.bleed / 2));
+        self.statuses.bleed -= 1;
+      }
+    }
+
+    function phaseProgress(actor) {
+      const phase = actor.phase;
+      if (!phase.duration) return 0;
+      return Math.max(0, Math.min(1, 1 - phase.timer / phase.duration));
+    }
+
+    function chainProgress(chain) {
+      if (!chain.current || !chain.duration) return 0;
+      return Math.max(0, Math.min(1, 1 - chain.timer / chain.duration));
+    }
+
+    function escapeHtml(text) {
+      return String(text).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    function renderCard(inst, className = "", reason = "") {
+      const card = cardOf(inst);
+      return `
+        <div class="card-wrap" data-card-id="${escapeHtml(card.CardID)}" title="${escapeHtml(card.Name + "：" + card.Description)}">
+          <div class="mini-card ${className}">
+            <div class="mini-title">${escapeHtml(card.Name)}</div>
+            <div class="mini-meta">${escapeHtml(card.Archetype)} · ${card.Cost}费 · ${card.PlayTimeT}T</div>
+            <div class="mini-desc">${escapeHtml(card.Description)}</div>
+          </div>
+          ${reason ? `<div class="reason">${escapeHtml(reason)}</div>` : ""}
+        </div>
+      `;
+    }
+
+    let previewCardId = "";
+    let previewAnimationFrame = 0;
+    let previewIntroUntil = 0;
+
+    function renderPreviewCard(card) {
+      return `
+        <div class="preview-card">
+          <div class="preview-title">${escapeHtml(card.Name)}</div>
+          <div class="preview-meta">${escapeHtml(card.Archetype)} · ${card.Cost}费 · ${card.PlayTimeT}T · ${escapeHtml(card.Tags)}</div>
+          <div class="preview-desc">${escapeHtml(card.Description)}</div>
+        </div>
+      `;
+    }
+
+    function previewTargetPosition(event) {
+      const preview = document.getElementById("cardPreview");
+      const margin = 16;
+      const width = preview.offsetWidth || 220;
+      const height = width * 580 / 356;
+      let x = event.clientX + 18;
+      let y = event.clientY - 22;
+      if (x + width + margin > window.innerWidth) x = event.clientX - width - 18;
+      if (y + height + margin > window.innerHeight) y = window.innerHeight - height - margin;
+      if (y < margin) y = margin;
+      return { x: Math.round(x), y: Math.round(y), width, height };
+    }
+
+    function setPreviewTransform(preview, x, y, scale = 1) {
+      preview.style.setProperty("--preview-x", `${Math.round(x)}px`);
+      preview.style.setProperty("--preview-y", `${Math.round(y)}px`);
+      preview.style.setProperty("--preview-scale", String(scale));
+    }
+
+    function showCardPreview(cardId, event, cardEl = null) {
+      const card = cardById[cardId];
+      const preview = document.getElementById("cardPreview");
+      if (!card || !preview) return;
+      const firstShow = previewCardId !== cardId || !preview.classList.contains("visible");
+      if (previewCardId !== cardId) {
+        preview.innerHTML = renderPreviewCard(card);
+        previewCardId = cardId;
+      }
+      const target = previewTargetPosition(event);
+      if (firstShow && cardEl) {
+        const sourceEl = cardEl.querySelector(".mini-card") || cardEl;
+        const source = sourceEl.getBoundingClientRect();
+        const startScale = Math.max(0.18, Math.min(1, source.width / target.width));
+        previewIntroUntil = performance.now() + 170;
+        preview.style.transition = "none";
+        setPreviewTransform(preview, source.left, source.top, startScale);
+        preview.classList.add("visible");
+        preview.getBoundingClientRect();
+        cancelAnimationFrame(previewAnimationFrame);
+        previewAnimationFrame = requestAnimationFrame(() => {
+          preview.style.transition = "";
+          setPreviewTransform(preview, target.x, target.y, 1);
+        });
+      } else {
+        if (performance.now() < previewIntroUntil) return;
+        setPreviewTransform(preview, target.x, target.y, 1);
+        preview.classList.add("visible");
+      }
+    }
+
+    function hideCardPreview() {
+      const preview = document.getElementById("cardPreview");
+      if (!preview) return;
+      cancelAnimationFrame(previewAnimationFrame);
+      previewIntroUntil = 0;
+      preview.style.transition = "";
+      preview.classList.remove("visible");
+      previewCardId = "";
+    }
+
+    function renderUnit(actor, targetId) {
+      const hpRatio = actor.maxHp ? actor.hp / actor.maxHp : 0;
+      const statuses = Object.entries(actor.statuses)
+        .filter(([, amount]) => amount > 0)
+        .map(([key, amount]) => `<span class="pill ${["burn", "poison", "bleed"].includes(key) ? "danger" : ""}" title="${statusLabels[key] || key}">${statusLabels[key] || key} ${Math.round(amount * 10) / 10}</span>`)
+        .join("");
+      document.getElementById(targetId).innerHTML = `
+        <div class="portrait">${escapeHtml(actor.character.Name)}</div>
+        <div class="unit-info">
+          <h2>${escapeHtml(actor.character.Name)}</h2>
+          <p>${escapeHtml(actor.character.Stage)} · ${escapeHtml(actor.character.Description)}</p>
+          <div class="hpbar"><div class="hpfill" style="transform:scaleX(${hpRatio})"></div></div>
+          <div class="hptext">HP ${actor.hp.toFixed(1)} / ${actor.maxHp}</div>
+        </div>
+        <div class="status-row">${statuses || `<span class="pill">无状态</span>`}</div>
+        ${actor.side === "player" ? `<div id="strategyButtons" class="strategy-buttons"></div><div id="battleLog" class="log"></div>` : ""}
+      `;
+    }
+
+    function renderLogic(actor, targetId) {
+      const strategy = strategyById[actor.strategyId];
+      const rule = ruleById[actor.ruleId];
+      const progress = phaseProgress(actor);
+      const decisionHtml = actor.lastDecision.length
+        ? actor.lastDecision.map(item => renderCard(item.inst, item.picked ? "chosen" : "discarded", item.reason)).join("")
+        : `<div class="empty">等待下一次策略抽牌。</div>`;
+      document.getElementById(targetId).innerHTML = `
+        <div class="panel-title">
+          <h3>${actor.side === "player" ? "玩家策略区" : "敌方策略区"}</h3>
+          <span>抽牌堆 ${actor.drawPile.length} · 弃牌堆 ${actor.discardPile.length}</span>
+        </div>
+        <div class="logic-body">
+          <div class="strategy-card">
+            <strong>${escapeHtml(strategy.Name)}</strong>
+            <p>${escapeHtml(strategy.Description)}</p>
+          </div>
+          <div class="rule-card">
+            <strong>${escapeHtml(rule.Name)}</strong>
+            <p>${escapeHtml(rule.Description)}</p>
+            ${renderRuleMeter(actor)}
+          </div>
+          <div class="progress">
+            <i style="transform:scaleX(${progress})"></i>
+            <span>${escapeHtml(actor.phase.label)} ${Math.round(progress * 100)}%</span>
+          </div>
+          <div class="drawn-area">
+            <p class="drawn-title">最近策略判断</p>
+            <div class="drawn-row">${decisionHtml}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderRuleMeter(actor) {
+      const rule = ruleById[actor.ruleId];
+      const current = packagingValue(actor);
+      const threshold = Number(rule.Threshold);
+      const ratio = Math.max(0, Math.min(1, current / threshold));
+      const label = rule.Type === "cost" ? "费用" : "槽位";
+      return `
+        <div class="rule-meter">
+          <div class="rule-line"><span>${label}进度</span><span>${current}/${threshold}</span></div>
+          <div class="progress"><i style="transform:scaleX(${ratio})"></i><span>${label} ${current}/${threshold}</span></div>
+        </div>
+      `;
+    }
+
+    function renderPending(actor, targetId) {
+      const body = actor.pending.length
+        ? `<div class="pending-row">${actor.pending.map(inst => renderCard(inst)).join("")}</div>`
+        : `<div class="empty">待封装区为空。策略编入的牌会先来到这里，满足规则后自动封装。</div>`;
+      document.getElementById(targetId).innerHTML = `
+        <div class="panel-title">
+          <h3>${actor.side === "player" ? "玩家待封装区" : "敌方待封装区"}</h3>
+          <span>${actor.pending.length} 张</span>
+        </div>
+        <div class="pending-body">${body}</div>
+      `;
+    }
+
+    function renderChains(actor, targetId) {
+      const chains = actor.chains.length
+        ? actor.chains.map(chain => {
+            const current = chain.current ? cardOf(chain.current).Name : "准备触发";
+            const total = chain.cards.reduce((sum, inst) => sum + Number(cardOf(inst).PlayTimeT), 0);
+            return `
+              <div class="chain">
+                <div class="chain-head">
+                  <strong>链${chain.id}</strong>
+                  <span>当前：${escapeHtml(current)} · 循环 ${total.toFixed(1)}T</span>
+                </div>
+                <div class="progress"><i style="transform:scaleX(${chainProgress(chain)})"></i><span>${escapeHtml(current)} ${Math.round(chainProgress(chain) * 100)}%</span></div>
+                <div class="chain-row">
+                  ${chain.cards.map(inst => renderCard(inst, chain.current && inst.uid === chain.current.uid ? "active" : "")).join("")}
+                </div>
+              </div>
+            `;
+          }).join("")
+        : `<div class="empty">工作区暂无牌链。自动封装后，牌链会固定显示并循环触发。</div>`;
+      document.getElementById(targetId).innerHTML = `
+        <div class="panel-title">
+          <h3>${actor.side === "player" ? "玩家工作区" : "敌方工作区"}</h3>
+          <span>${actor.chains.length} 条牌链</span>
+        </div>
+        <div class="chain-body">${chains}</div>
+      `;
+    }
+
+    function renderStrategyButtons() {
+      const actor = state.actors.player;
+      const root = document.getElementById("strategyButtons");
+      if (!root) return;
+      root.innerHTML = actor.character.StrategyIDs.map(strategyId => {
+        const strategy = strategyById[strategyId];
+        return `<button data-strategy="${strategyId}" class="${actor.strategyId === strategyId ? "active" : ""}" title="${escapeHtml(strategy.Description)}">${escapeHtml(strategy.Name)}</button>`;
+      }).join("");
+      root.querySelectorAll("[data-strategy]").forEach(button => {
+        button.addEventListener("click", () => {
+          actor.strategyId = button.dataset.strategy;
+          log(`<b>${actorName(actor)}</b> 切换策略为「${strategyById[actor.strategyId].Name}」。`);
+          render();
+        });
+      });
+      const logRoot = document.getElementById("battleLog");
+      logRoot.innerHTML = state.log.map(item => `<div>${item}</div>`).join("");
+    }
+
+    function renderControls() {
+      document.querySelectorAll("[data-speed]").forEach(button => {
+        const speed = Number(button.dataset.speed);
+        button.classList.toggle("active", !state.paused && state.speed === speed);
+      });
+      const pauseBtn = document.getElementById("pauseBtn");
+      pauseBtn.textContent = state.paused ? "继续" : "暂停";
+      pauseBtn.classList.toggle("active", state.paused);
+      const battleState = document.getElementById("battleState");
+      battleState.textContent = state.ended ? `${state.winner} 获胜` : `${state.speed}x · ${state.paused ? "暂停" : "运行中"}`;
+      battleState.classList.toggle("ended", state.ended);
+    }
+
+    function render() {
+      const player = state.actors.player;
+      const enemy = state.actors.enemy;
+      if (!player || !enemy) return;
+      renderUnit(enemy, "enemyUnit");
+      renderLogic(enemy, "enemyLogic");
+      renderPending(enemy, "enemyPending");
+      renderChains(enemy, "enemyChains");
+      renderUnit(player, "playerUnit");
+      renderLogic(player, "playerLogic");
+      renderPending(player, "playerPending");
+      renderChains(player, "playerChains");
+      renderStrategyButtons();
+      renderControls();
+    }
+
+    let lastTime = performance.now();
+    let renderAccumulator = 0;
+    function loop(now) {
+      const realDt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+      if (!state.paused && !state.ended) {
+        const dt = realDt * state.speed;
+        state.time += dt;
+        updateActor(state.actors.player, dt);
+        updateActor(state.actors.enemy, dt);
+      }
+      renderAccumulator += realDt;
+      if (renderAccumulator >= 1 / 24) {
+        render();
+        renderAccumulator = 0;
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.querySelectorAll("[data-speed]").forEach(button => {
+      button.addEventListener("click", () => {
+        state.speed = Number(button.dataset.speed);
+        state.paused = false;
+        renderControls();
+      });
+    });
+
+    document.getElementById("pauseBtn").addEventListener("click", () => {
+      state.paused = !state.paused;
+      renderControls();
+    });
+
+    document.getElementById("newBattleBtn").addEventListener("click", resetBattle);
+
+    window.addEventListener("keydown", event => {
+      if (event.target && ["INPUT", "TEXTAREA"].includes(event.target.tagName)) return;
+      if (event.key >= "1" && event.key <= "6") {
+        state.speed = speeds[Number(event.key) - 1];
+        state.paused = false;
+      }
+      if (event.code === "Space") {
+        event.preventDefault();
+        state.paused = !state.paused;
+      }
+      if (event.key.toLowerCase() === "r") resetBattle();
+    });
+
+    document.addEventListener("pointermove", event => {
+      const target = document.elementFromPoint(event.clientX, event.clientY);
+      const cardEl = target && target.closest ? target.closest("[data-card-id]") : null;
+      if (!cardEl) {
+        hideCardPreview();
+        return;
+      }
+      showCardPreview(cardEl.dataset.cardId, event, cardEl);
+    });
+
+    document.addEventListener("pointerover", event => {
+      const cardEl = event.target && event.target.closest ? event.target.closest("[data-card-id]") : null;
+      if (cardEl) showCardPreview(cardEl.dataset.cardId, event, cardEl);
+    });
+
+    document.addEventListener("pointerout", event => {
+      const fromCard = event.target && event.target.closest ? event.target.closest("[data-card-id]") : null;
+      const toCard = event.relatedTarget && event.relatedTarget.closest ? event.relatedTarget.closest("[data-card-id]") : null;
+      if (fromCard && !toCard) hideCardPreview();
+    });
+
+    document.addEventListener("pointerleave", hideCardPreview);
+
+    resetBattle();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

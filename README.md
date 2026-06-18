@@ -6,6 +6,7 @@
 
 - `Draw_Fight_002/`：武器槽位 + 手动打牌 MVP。
 - `Draw_Fight_003/`：牌链封装 + 工作区循环 MVP。
+- `Draw_Fight_004/`：抽牌策略 + 自动封装牌链 MVP。
 
 ## 目录约定
 
