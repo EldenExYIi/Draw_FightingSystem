@@ -3,18 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Draw FightingSystem</title>
+  <title>Draw MVP</title>
   <style>
     :root {
       color-scheme: light;
-      --bg: #f4f6fa;
+      --bg: #f5f7fb;
       --panel: #ffffff;
-      --text: #1d2733;
-      --muted: #647284;
-      --line: #d8e0ea;
-      --accent: #e95b67;
-      --accent-strong: #c93d4a;
-      --shadow: 0 18px 45px rgba(31, 43, 58, 0.08);
+      --text: #182331;
+      --muted: #667386;
+      --line: #d9e1ec;
+      --battle: #d94c59;
+      --battle-soft: #fff1f3;
+      --level: #2a8c73;
+      --level-soft: #edf9f5;
+      --shadow: 0 18px 42px rgba(32, 45, 64, 0.08);
     }
 
     * {
@@ -30,97 +32,125 @@
     }
 
     .page {
-      width: min(1120px, calc(100vw - 32px));
+      width: min(1080px, calc(100vw - 32px));
       margin: 0 auto;
-      padding: 40px 0 56px;
+      padding: 42px 0 56px;
     }
 
     header {
       display: flex;
+      align-items: flex-end;
       justify-content: space-between;
       gap: 24px;
-      align-items: flex-end;
       padding-bottom: 24px;
       border-bottom: 1px solid var(--line);
     }
 
     h1 {
-      margin: 0 0 8px;
-      font-size: clamp(28px, 4vw, 44px);
-      line-height: 1.08;
+      margin: 0 0 10px;
+      font-size: clamp(30px, 5vw, 52px);
+      line-height: 1.06;
       letter-spacing: 0;
     }
 
     .subtitle {
+      max-width: 720px;
       margin: 0;
       color: var(--muted);
       font-size: 15px;
       line-height: 1.7;
-      max-width: 720px;
     }
 
-    .count {
+    .build-mark {
       flex: 0 0 auto;
       border: 1px solid var(--line);
-      background: var(--panel);
       border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
       padding: 12px 16px;
       color: var(--muted);
-      font-size: 14px;
-      box-shadow: var(--shadow);
+      font-size: 13px;
+      line-height: 1.45;
     }
 
-    .count strong {
+    .build-mark strong {
       display: block;
       color: var(--text);
-      font-size: 24px;
+      font-size: 22px;
       line-height: 1;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
     }
 
     main {
-      padding-top: 28px;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 18px;
+      padding-top: 30px;
     }
 
-    .version-card {
-      min-height: 260px;
+    .system-card {
+      min-height: 310px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      gap: 24px;
-      background: var(--panel);
+      gap: 28px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      padding: 22px;
-      text-decoration: none;
+      background: var(--panel);
       color: inherit;
+      text-decoration: none;
+      padding: 24px;
       box-shadow: var(--shadow);
       transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
     }
 
-    .version-card:hover,
-    .version-card:focus-visible {
+    .system-card:hover,
+    .system-card:focus-visible {
       transform: translateY(-2px);
-      border-color: var(--accent);
-      box-shadow: 0 22px 60px rgba(31, 43, 58, 0.13);
+      box-shadow: 0 24px 58px rgba(32, 45, 64, 0.13);
       outline: none;
     }
 
+    .system-card.battle:hover,
+    .system-card.battle:focus-visible {
+      border-color: var(--battle);
+    }
+
+    .system-card.level:hover,
+    .system-card.level:focus-visible {
+      border-color: var(--level);
+    }
+
+    .icon {
+      width: 54px;
+      height: 54px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      font-size: 28px;
+      margin-bottom: 18px;
+    }
+
+    .battle .icon {
+      background: var(--battle-soft);
+    }
+
+    .level .icon {
+      background: var(--level-soft);
+    }
+
     .eyebrow {
-      margin: 0 0 12px;
-      color: var(--accent);
+      margin: 0 0 10px;
+      color: var(--muted);
       font-size: 13px;
       font-weight: 800;
       letter-spacing: 0;
     }
 
     h2 {
-      margin: 0 0 10px;
-      font-size: 24px;
-      line-height: 1.2;
+      margin: 0 0 12px;
+      font-size: 28px;
+      line-height: 1.15;
       letter-spacing: 0;
     }
 
@@ -128,24 +158,24 @@
       margin: 0;
       color: var(--muted);
       font-size: 14px;
-      line-height: 1.65;
+      line-height: 1.7;
     }
 
-    .tags {
+    .meta-row {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      margin-top: 18px;
+      margin-top: 20px;
     }
 
-    .tag {
-      border: 1px solid #f0b1ba;
-      background: #fff4f5;
-      color: var(--accent-strong);
+    .pill {
+      border: 1px solid var(--line);
       border-radius: 999px;
-      padding: 5px 9px;
+      padding: 6px 10px;
+      color: var(--muted);
       font-size: 12px;
       font-weight: 700;
+      background: #fbfcfe;
     }
 
     .open-row {
@@ -153,51 +183,53 @@
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      color: var(--accent-strong);
       font-weight: 800;
     }
 
+    .battle .open-row {
+      color: var(--battle);
+    }
+
+    .level .open-row {
+      color: var(--level);
+    }
+
     .arrow {
-      width: 34px;
-      height: 34px;
+      width: 36px;
+      height: 36px;
       display: grid;
       place-items: center;
       border-radius: 50%;
-      background: var(--accent);
       color: #fff;
-      font-size: 20px;
+      font-size: 22px;
       line-height: 1;
     }
 
-    .empty-card {
-      min-height: 260px;
-      border: 1px dashed #c7d1dd;
-      border-radius: 8px;
-      padding: 22px;
-      color: var(--muted);
-      display: grid;
-      align-content: center;
-      gap: 8px;
+    .battle .arrow {
+      background: var(--battle);
     }
 
-    .empty-card h2 {
-      color: #3a4655;
-      font-size: 20px;
+    .level .arrow {
+      background: var(--level);
     }
 
-    @media (max-width: 680px) {
+    @media (max-width: 760px) {
       .page {
-        width: min(100vw - 24px, 1120px);
-        padding-top: 24px;
+        width: min(100vw - 24px, 1080px);
+        padding-top: 26px;
       }
 
       header {
         display: block;
       }
 
-      .count {
+      .build-mark {
         width: fit-content;
         margin-top: 18px;
+      }
+
+      main {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -206,74 +238,50 @@
   <div class="page">
     <header>
       <div>
-        <h1>战斗系统版本库</h1>
-        <p class="subtitle">这里是 Draw Fight 系列原型的入口页。每个版本都会独立留档，后续新的战斗系统会作为新的版本卡片加入。</p>
+        <h1>Draw MVP</h1>
+        <p class="subtitle">项目原型总入口。当前先拆分为战斗系统和关卡系统两个方向，后续每个系统都可以在自己的文件夹内继续归档多个 MVP 版本。</p>
       </div>
-      <div class="count">
-        <strong>3</strong>
-        已归档版本
+      <div class="build-mark">
+        <strong>2</strong>
+        系统入口
       </div>
     </header>
 
-    <main aria-label="战斗系统版本列表">
-      <a class="version-card" href="Draw_Fight_002/index.html">
+    <main aria-label="系统入口">
+      <a class="system-card battle" href="FightingSystem/index.html">
         <div>
-          <p class="eyebrow">2026.06.09 · Fight 002</p>
-          <h2>武器槽位 + 手动打牌</h2>
-          <p class="description">自动抽牌、玩家二选一出牌/跳过、动作牌进入武器槽、法术即时触发，支持速度调整、回合制、牌堆查看、日志效果预览与动画反馈。</p>
-          <div class="tags" aria-label="版本标签">
-            <span class="tag">武器槽位</span>
-            <span class="tag">实时抽牌</span>
-            <span class="tag">手动决策</span>
-            <span class="tag">xlsx 数据</span>
+          <div class="icon" aria-hidden="true">⚔️</div>
+          <p class="eyebrow">Battle System</p>
+          <h2>战斗系统</h2>
+          <p class="description">进入现有战斗系统 MVP。这里保留 Fight 002、Fight 003、Fight 004 等版本入口，用于持续迭代抽牌、封装与循环牌链玩法。</p>
+          <div class="meta-row" aria-label="战斗系统标签">
+            <span class="pill">已有 MVP</span>
+            <span class="pill">版本归档</span>
+            <span class="pill">可试玩</span>
           </div>
         </div>
         <div class="open-row">
-          <span>打开版本</span>
+          <span>进入战斗系统</span>
           <span class="arrow" aria-hidden="true">›</span>
         </div>
       </a>
 
-      <a class="version-card" href="Draw_Fight_003/index.html">
+      <a class="system-card level" href="LevelSystem/index.html">
         <div>
-          <p class="eyebrow">2026.06.15 · Fight 003</p>
-          <h2>牌链封装 + 工作区循环</h2>
-          <p class="description">取消槽位和法术牌，抽牌后选择编入/弃置；编入牌进入待封装区，封装后才组成自动循环牌链并开始触发。</p>
-          <div class="tags" aria-label="版本标签">
-            <span class="tag">牌链封装</span>
-            <span class="tag">打牌时间</span>
-            <span class="tag">工作区循环</span>
-            <span class="tag">xlsx 数据</span>
+          <div class="icon" aria-hidden="true">⛓️</div>
+          <p class="eyebrow">Level System</p>
+          <h2>关卡系统</h2>
+          <p class="description">关卡系统 MVP 入口已预留。当前暂不实现具体玩法内容，后续可在这里接入商店、战斗循环与关卡进度原型。</p>
+          <div class="meta-row" aria-label="关卡系统标签">
+            <span class="pill">占位入口</span>
+            <span class="pill">待制作</span>
           </div>
         </div>
         <div class="open-row">
-          <span>打开版本</span>
+          <span>进入关卡系统</span>
           <span class="arrow" aria-hidden="true">›</span>
         </div>
       </a>
-
-      <a class="version-card" href="Draw_Fight_004/index.html">
-        <div>
-          <p class="eyebrow">2026.06.17 · Fight 004</p>
-          <h2>抽牌策略 + 自动封装牌链</h2>
-          <p class="description">取消逐张手动出牌，抽牌策略自动筛选编入/弃置；不同角色使用槽位或费用等封装规则，满足条件后自动生成循环牌链。</p>
-          <div class="tags" aria-label="版本标签">
-            <span class="tag">抽牌策略</span>
-            <span class="tag">自动编入</span>
-            <span class="tag">封装规则</span>
-            <span class="tag">xlsx 数据</span>
-          </div>
-        </div>
-        <div class="open-row">
-          <span>打开版本</span>
-          <span class="arrow" aria-hidden="true">›</span>
-        </div>
-      </a>
-
-      <section class="empty-card" aria-label="后续版本占位">
-        <h2>后续版本</h2>
-        <p class="description">新的战斗系统会以独立文件夹保存，并在这里新增入口。</p>
-      </section>
     </main>
   </div>
 </body>

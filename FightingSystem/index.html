@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Draw FightingSystem</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6fa;
+      --panel: #ffffff;
+      --text: #1d2733;
+      --muted: #647284;
+      --line: #d8e0ea;
+      --accent: #e95b67;
+      --accent-strong: #c93d4a;
+      --shadow: 0 18px 45px rgba(31, 43, 58, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .page {
+      width: min(1120px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 40px 0 56px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: flex-end;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 4vw, 44px);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.7;
+      max-width: 720px;
+    }
+
+    .count {
+      flex: 0 0 auto;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: var(--muted);
+      font-size: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .count strong {
+      display: block;
+      color: var(--text);
+      font-size: 24px;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    main {
+      padding-top: 28px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 18px;
+    }
+
+    .version-card {
+      min-height: 260px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      text-decoration: none;
+      color: inherit;
+      box-shadow: var(--shadow);
+      transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .version-card:hover,
+    .version-card:focus-visible {
+      transform: translateY(-2px);
+      border-color: var(--accent);
+      box-shadow: 0 22px 60px rgba(31, 43, 58, 0.13);
+      outline: none;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 24px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .description {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .tag {
+      border: 1px solid #f0b1ba;
+      background: #fff4f5;
+      color: var(--accent-strong);
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .open-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      color: var(--accent-strong);
+      font-weight: 800;
+    }
+
+    .arrow {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .empty-card {
+      min-height: 260px;
+      border: 1px dashed #c7d1dd;
+      border-radius: 8px;
+      padding: 22px;
+      color: var(--muted);
+      display: grid;
+      align-content: center;
+      gap: 8px;
+    }
+
+    .empty-card h2 {
+      color: #3a4655;
+      font-size: 20px;
+    }
+
+    @media (max-width: 680px) {
+      .page {
+        width: min(100vw - 24px, 1120px);
+        padding-top: 24px;
+      }
+
+      header {
+        display: block;
+      }
+
+      .count {
+        width: fit-content;
+        margin-top: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div>
+        <h1>战斗系统版本库</h1>
+        <p class="subtitle">这里是 Draw Fight 系列原型的入口页。每个版本都会独立留档，后续新的战斗系统会作为新的版本卡片加入。</p>
+      </div>
+      <div class="count">
+        <strong>3</strong>
+        已归档版本
+      </div>
+    </header>
+
+    <main aria-label="战斗系统版本列表">
+      <a class="version-card" href="Draw_Fight_002/index.html">
+        <div>
+          <p class="eyebrow">2026.06.09 · Fight 002</p>
+          <h2>武器槽位 + 手动打牌</h2>
+          <p class="description">自动抽牌、玩家二选一出牌/跳过、动作牌进入武器槽、法术即时触发，支持速度调整、回合制、牌堆查看、日志效果预览与动画反馈。</p>
+          <div class="tags" aria-label="版本标签">
+            <span class="tag">武器槽位</span>
+            <span class="tag">实时抽牌</span>
+            <span class="tag">手动决策</span>
+            <span class="tag">xlsx 数据</span>
+          </div>
+        </div>
+        <div class="open-row">
+          <span>打开版本</span>
+          <span class="arrow" aria-hidden="true">›</span>
+        </div>
+      </a>
+
+      <a class="version-card" href="Draw_Fight_003/index.html">
+        <div>
+          <p class="eyebrow">2026.06.15 · Fight 003</p>
+          <h2>牌链封装 + 工作区循环</h2>
+          <p class="description">取消槽位和法术牌，抽牌后选择编入/弃置；编入牌进入待封装区，封装后才组成自动循环牌链并开始触发。</p>
+          <div class="tags" aria-label="版本标签">
+            <span class="tag">牌链封装</span>
+            <span class="tag">打牌时间</span>
+            <span class="tag">工作区循环</span>
+            <span class="tag">xlsx 数据</span>
+          </div>
+        </div>
+        <div class="open-row">
+          <span>打开版本</span>
+          <span class="arrow" aria-hidden="true">›</span>
+        </div>
+      </a>
+
+      <a class="version-card" href="Draw_Fight_004/index.html">
+        <div>
+          <p class="eyebrow">2026.06.17 · Fight 004</p>
+          <h2>抽牌策略 + 自动封装牌链</h2>
+          <p class="description">取消逐张手动出牌，抽牌策略自动筛选编入/弃置；不同角色使用槽位或费用等封装规则，满足条件后自动生成循环牌链。</p>
+          <div class="tags" aria-label="版本标签">
+            <span class="tag">抽牌策略</span>
+            <span class="tag">自动编入</span>
+            <span class="tag">封装规则</span>
+            <span class="tag">xlsx 数据</span>
+          </div>
+        </div>
+        <div class="open-row">
+          <span>打开版本</span>
+          <span class="arrow" aria-hidden="true">›</span>
+        </div>
+      </a>
+
+      <section class="empty-card" aria-label="后续版本占位">
+        <h2>后续版本</h2>
+        <p class="description">新的战斗系统会以独立文件夹保存，并在这里新增入口。</p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
