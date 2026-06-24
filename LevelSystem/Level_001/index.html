@@ -225,7 +225,7 @@
     .strategy-slot .queue-name { min-width: 0; color: var(--ink); text-align: left; line-height: 1.35; }
     .strategy-slot .queue-name small { display: block; color: var(--muted); font-size: 10px; }
     .queue-button { width: 30px; min-height: 30px; padding: 0; }
-    .database-list { display: grid; gap: 6px; }
+    .database-list { display: grid; gap: 6px; max-height: 280px; overflow: auto; }
     .database-row { padding: 8px; border-radius: 5px; background: var(--paper-2); font-size: 11px; line-height: 1.5; color: var(--muted); }
     .database-row.current { background: var(--green-soft); color: var(--green-dark); }
     .deck-list { display: grid; gap: 6px; max-height: 240px; overflow: auto; }
@@ -535,7 +535,7 @@
               <div id="buildSummary" class="empty"></div>
             </section>
             <section class="side-section">
-              <h3>基础 Build 数据库</h3>
+              <h3>第 1–20 轮 Build 数据库</h3>
               <div id="databaseList" class="database-list"></div>
             </section>
             <section class="side-section">
@@ -610,7 +610,7 @@
             </div>
             <div id="enemyStatuses" class="status-list"></div>
             <div class="enemy-timer">
-              <strong id="enemyIntent">基础数据库 · 第 1 轮 Build</strong>
+              <strong id="enemyIntent">同轮 Build 数据池</strong>
               <div id="enemyBuildText" class="empty"></div>
             </div>
           </aside>
@@ -682,7 +682,7 @@
       { id:"flame_hammer", name:"炽焰之锤", price:12, slots:2, attackTime:1, rarity:"传说", effect:"前一把武器获得一层锻造", forge:"锻造10：锻造所有其他武器一次" },
       { id:"stone_sword", name:"石中剑", price:12, slots:3, attackTime:.5, rarity:"传说", effect:"自己获得一层锻造", forge:"锻造50：造成100点伤害" }
     ];
-    const BASELINE_BUILDS = [
+    const CALIBRATION_SEEDS = [
       {
         round:1, result:"胜利", cards:["stab","defend","prepare"],
         strategies:["prepare_draw","prepare_draw","prepare_draw","prepare_draw","prepare_draw","prepare_draw"], weapons:["dual_blades"]
@@ -719,6 +719,8 @@
       shopVisits:0, exitGold:0, sessionRecords:[],
       battle:null, speed:1, raf:0, lastTime:0
     };
+    let referenceBuildDatabase = [];
+    let silentSimulation = false;
 
     function showScreen(name) {
       Object.entries(screens).forEach(([key, el]) => el.classList.toggle("active", key === name));
@@ -742,19 +744,164 @@
       clearTimeout(toast.timer);
       toast.timer = setTimeout(() => el.classList.remove("show"), 1700);
     }
-    function shuffle(items) {
+    function shuffleWith(items, random = Math.random) {
       const out = [...items];
       for (let i = out.length - 1; i > 0; i -= 1) {
-        const j = Math.floor(Math.random() * (i + 1));
+        const j = Math.floor(random() * (i + 1));
         [out[i], out[j]] = [out[j], out[i]];
       }
       return out;
     }
+    function shuffle(items) { return shuffleWith(items); }
     function cardById(id) { return CARDS.find(card => card.id === id); }
     function strategyById(id) { return STRATEGIES.find(strategy => strategy.id === id) || STRATEGIES[0]; }
     function weaponById(id) { return WEAPONS.find(weapon => weapon.id === id); }
     function interestFor(gold) { return Math.min(5, Math.floor(gold / 5)); }
     function rarityPrice(rarity) { return ({ "普通":3, "稀有":6, "史诗":9, "传说":12 })[rarity] || 4; }
+
+    function seededRandom(seed) {
+      let value = seed >>> 0;
+      return () => {
+        value += 0x6D2B79F5;
+        let result = value;
+        result = Math.imul(result ^ result >>> 15, result | 1);
+        result ^= result + Math.imul(result ^ result >>> 7, result | 61);
+        return ((result ^ result >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function cloneBuild(build) {
+      return {
+        cards:[...build.cards],
+        strategies:[...build.strategies],
+        weapons:[...build.weapons]
+      };
+    }
+
+    function buildSignature(build) {
+      return `${[...build.cards].sort().join(",")}|${build.strategies.join(",")}|${build.weapons.join(",")}`;
+    }
+
+    function randomItem(items, random) {
+      return items[Math.floor(random() * items.length)];
+    }
+
+    function mutateBuild(parent, round, random, seedVariant = false) {
+      const build = cloneBuild(parent);
+      if (seedVariant) {
+        if (build.cards.length && random() < .8) {
+          const cardIndex = Math.floor(random() * build.cards.length);
+          const original = cardById(build.cards[cardIndex]);
+          const compatibleCards = CARDS.filter(card => card.id !== original.id && card.tags.some(tag => original.tags.includes(tag)));
+          if (compatibleCards.length) build.cards[cardIndex] = randomItem(compatibleCards, random).id;
+        }
+        if (build.weapons.length && random() < .45) {
+          const weaponIndex = Math.floor(random() * build.weapons.length);
+          const original = weaponById(build.weapons[weaponIndex]);
+          const compatibleWeapons = WEAPONS.filter(weapon => weapon.id !== original.id && weapon.slots === original.slots);
+          if (compatibleWeapons.length) build.weapons[weaponIndex] = randomItem(compatibleWeapons, random).id;
+        }
+      } else {
+        const additions = 2 + (round % 3 === 0 ? 1 : 0);
+        for (let index = 0; index < additions; index += 1) build.cards.push(randomItem(CARDS, random).id);
+        if (round % 2 === 0 || random() < .35) build.weapons.push(randomItem(WEAPONS, random).id);
+      }
+      if (random() < .7) {
+        build.strategies[Math.floor(random() * build.strategies.length)] = randomItem(STRATEGIES, random).id;
+      }
+      if (build.strategies.length > 1 && random() < .65) {
+        const from = Math.floor(random() * build.strategies.length);
+        const to = Math.floor(random() * build.strategies.length);
+        [build.strategies[from], build.strategies[to]] = [build.strategies[to], build.strategies[from]];
+      }
+      if (build.weapons.length > 1 && random() < .8) {
+        const from = Math.floor(random() * build.weapons.length);
+        const to = Math.floor(random() * build.weapons.length);
+        [build.weapons[from], build.weapons[to]] = [build.weapons[to], build.weapons[from]];
+      }
+      return build;
+    }
+
+    function simulateDuel(buildA, buildB, seed) {
+      const previousBattle = state.battle;
+      const previousSilent = silentSimulation;
+      const randomA = seededRandom(seed);
+      const randomB = seededRandom(seed ^ 0x9E3779B9);
+      silentSimulation = true;
+      const actorA = createActor(buildA, "候选", randomA);
+      const actorB = createActor(buildB, "基准", randomB);
+      state.battle = { logs:[] };
+      let elapsed = 0;
+      while (actorA.hp > 0 && actorB.hp > 0 && elapsed < 120) {
+        updateActorV2(actorA, actorB, .2);
+        if (actorB.hp > 0) updateActorV2(actorB, actorA, .2);
+        elapsed += .2;
+      }
+      const scoreA = actorA.hp + actorA.block * .1;
+      const scoreB = actorB.hp + actorB.block * .1;
+      state.battle = previousBattle;
+      silentSimulation = previousSilent;
+      if (actorA.hp > 0 && actorB.hp <= 0) return 1;
+      if (actorB.hp > 0 && actorA.hp <= 0) return 0;
+      if (Math.abs(scoreA - scoreB) < .01) return .5;
+      return scoreA > scoreB ? 1 : 0;
+    }
+
+    function scoreCandidate(build, benchmarks, seed, repeats = 1) {
+      let score = 0;
+      let simulations = 0;
+      for (let repeat = 0; repeat < repeats; repeat += 1) {
+        benchmarks.forEach((benchmark, index) => {
+          const duelSeed = seed + repeat * 101 + index * 17;
+          score += simulateDuel(build, benchmark, duelSeed);
+          score += 1 - simulateDuel(benchmark, build, duelSeed + 7);
+          simulations += 2;
+        });
+      }
+      return { winRate:score / simulations, simulations };
+    }
+
+    function selectReferencePool(candidates, benchmarks, round, targetRate, repeats = 1) {
+      const seen = new Set();
+      const scored = candidates
+        .filter(build => {
+          const signature = buildSignature(build);
+          if (seen.has(signature)) return false;
+          seen.add(signature);
+          return true;
+        })
+        .map((build, index) => ({
+          build,
+          ...scoreCandidate(build, benchmarks, round * 1000 + index * 41, repeats),
+          source:round <= 5 ? "种子校准" : "逐轮模拟"
+        }))
+        .sort((a, b) => Math.abs(a.winRate - targetRate) - Math.abs(b.winRate - targetRate));
+      const calibrated = scored.filter(record => Math.abs(record.winRate - targetRate) <= .2);
+      return (calibrated.length ? calibrated : scored).slice(0, 5);
+    }
+
+    function generateReferenceBuildDatabase(maxRound = 20) {
+      const database = [];
+      for (let round = 1; round <= maxRound; round += 1) {
+        const random = seededRandom(20260624 + round * 97);
+        if (round <= CALIBRATION_SEEDS.length) {
+          const seed = cloneBuild(CALIBRATION_SEEDS[round - 1]);
+          const candidates = [seed];
+          for (let index = 0; index < 23; index += 1) candidates.push(mutateBuild(seed, round, random, true));
+          database.push(selectReferencePool(candidates, [seed], round, .5, 4));
+        } else {
+          const previousPool = database[round - 2];
+          const candidates = [];
+          for (let index = 0; index < 14; index += 1) {
+            const parent = previousPool[index % previousPool.length].build;
+            candidates.push(mutateBuild(parent, round, random, false));
+          }
+          const benchmarks = previousPool.slice(0, 3).map(record => record.build);
+          database.push(selectReferencePool(candidates, benchmarks, round, .65));
+        }
+      }
+      return database;
+    }
 
     function buildSnapshot() {
       return {
@@ -886,12 +1033,19 @@
         `封装顺序：<b>${state.weaponOrder.length ? state.weaponOrder.map(id => weaponById(id).name).join(" → ") : "无"}</b><br>` +
         `策略循环：<b>${state.strategyInventory.slice(0, 6).map(id => strategyById(id).name).join(" → ")}</b>`;
 
-      const baselineRows = BASELINE_BUILDS.map(build => `
-        <div class="database-row ${Math.min(state.battleNumber, 5) === build.round ? "current" : ""}">
-          <b>第 ${build.round} 轮 · 模拟${build.result}</b><br>
-          ${build.cards.length} 张牌 · ${build.weapons.map(id => weaponById(id).name).join(" → ")}
-        </div>
-      `).join("");
+      const baselineRows = referenceBuildDatabase.map((pool, index) => {
+        const cardCounts = pool.map(record => record.build.cards.length);
+        const weaponCounts = pool.map(record => record.build.weapons.length);
+        const simulations = pool.reduce((total, record) => total + record.simulations, 0);
+        const averageRate = pool.reduce((total, record) => total + record.winRate, 0) / pool.length;
+        return `
+          <div class="database-row ${Math.min(state.battleNumber, 20) === index + 1 ? "current" : ""}">
+            <b>第 ${index + 1} 轮 · ${pool.length} 份参考 Build</b><br>
+            ${Math.min(...cardCounts)}–${Math.max(...cardCounts)} 张牌 · ${Math.min(...weaponCounts)}–${Math.max(...weaponCounts)} 把武器<br>
+            ${simulations} 次校准对局 · 平均筛选胜率 ${Math.round(averageRate * 100)}%
+          </div>
+        `;
+      }).join("");
       const recordedRows = state.sessionRecords.map(record => `
         <div class="database-row">
           <b>玩家记录 · 第 ${record.round} 轮${record.won ? "胜利" : "失败"}</b><br>
@@ -964,10 +1118,10 @@
       renderShopV2();
     }
 
-    function createActor(build, name) {
+    function createActor(build, name, random = Math.random) {
       return {
         name, hp:100, maxHp:100, block:0, charge:0, strength:0, haste:0, double:0, stance:0,
-        deck:shuffle(build.cards), discard:[], pending:[], chains:[],
+        deck:shuffleWith(build.cards, random), discard:[], pending:[], chains:[],
         strategies:[...build.strategies], strategyIndex:0, strategyTimer:0,
         strategyDuration:strategyById(build.strategies[0]).time,
         weapons:build.weapons.map((id, index) => ({ id, index:index + 1, used:false }))
@@ -975,16 +1129,19 @@
     }
 
     function createBattleV2() {
-      const databaseBuild = BASELINE_BUILDS[Math.min(state.battleNumber, 5) - 1];
+      const databaseRound = Math.min(state.battleNumber, referenceBuildDatabase.length);
+      const databasePool = referenceBuildDatabase[databaseRound - 1];
+      const databaseRecord = randomItem(databasePool, Math.random);
+      const databaseBuild = databaseRecord.build;
       state.battle = {
         player:createActor(buildSnapshot(), "玩家"),
-        enemy:createActor(databaseBuild, `第 ${databaseBuild.round} 轮玩家 Build`),
-        databaseBuild, ended:false, logs:[]
+        enemy:createActor(databaseBuild, `第 ${databaseRound} 轮参考 Build`),
+        databaseBuild, databaseRecord, databaseRound, ended:false, logs:[]
       };
       state.exitGold = state.gold;
       state.speed = 1;
       document.querySelectorAll("[data-speed]").forEach(button => button.classList.toggle("active", Number(button.dataset.speed) === 1));
-      logBattleV2(`第 ${state.battleNumber} 场开始：玩家 Build 对阵基础数据库第 ${databaseBuild.round} 轮 Build。`);
+      logBattleV2(`第 ${state.battleNumber} 场开始：玩家 Build 随机匹配第 ${databaseRound} 轮模拟数据池。`);
       renderBattleV2();
       showScreen("battle");
       state.lastTime = performance.now();
@@ -1207,7 +1364,12 @@
       state.gold += base + interest;
       if (won) state.wins += 1;
       else state.losses += 1;
-      state.sessionRecords.push({ round:state.battleNumber, won, build:buildSnapshot() });
+      const playerBuild = buildSnapshot();
+      state.sessionRecords.push({ round:state.battleNumber, won, build:playerBuild });
+      const roundPool = referenceBuildDatabase[Math.min(state.battleNumber, referenceBuildDatabase.length) - 1];
+      if (roundPool && !roundPool.some(record => buildSignature(record.build) === buildSignature(playerBuild))) {
+        roundPool.push({ build:cloneBuild(playerBuild), winRate:won ? 1 : 0, simulations:1, source:"玩家实战" });
+      }
       const gameOver = state.losses >= 3;
       document.querySelector("#resultTitle").textContent = won ? "战斗胜利" : "战斗失败";
       document.querySelector("#resultMark").textContent = gameOver ? "第三次失败" : "战斗结算";
@@ -1235,7 +1397,7 @@
     }
 
     function logBattleV2(html) {
-      if (!state.battle) return;
+      if (silentSimulation || !state.battle) return;
       state.battle.logs.unshift(html);
       state.battle.logs = state.battle.logs.slice(0, 40);
     }
@@ -1287,7 +1449,8 @@
       document.querySelector("#enemyStatuses").innerHTML = actorStatusesV2(enemy);
       document.querySelector("#enemyName").textContent = enemy.name;
       document.querySelector("#enemyPortrait").textContent = "战士";
-      document.querySelector("#enemyIntent").textContent = `基础数据库 · 第 ${battle.databaseBuild.round} 轮模拟胜利 Build`;
+      document.querySelector("#enemyIntent").textContent =
+        `第 ${battle.databaseRound} 轮数据池 · ${battle.databaseRecord.source} · 校准胜率 ${Math.round(battle.databaseRecord.winRate * 100)}%`;
       document.querySelector("#enemyBuildText").innerHTML =
         `${battle.databaseBuild.cards.length} 张牌<br>` +
         `${battle.databaseBuild.weapons.map(id => weaponById(id).name).join(" → ")}<br>` +
@@ -1320,6 +1483,8 @@
       renderBattleV2();
       if (state.battle && !state.battle.ended) state.raf = requestAnimationFrame(battleLoopV2);
     }
+
+    referenceBuildDatabase = generateReferenceBuildDatabase(20);
 
     document.querySelector("#startBtn").addEventListener("click", () => showScreen("character"));
     document.querySelector("#confirmCharacterBtn").addEventListener("click", openShopV2);
