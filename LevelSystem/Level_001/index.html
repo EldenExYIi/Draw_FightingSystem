@@ -160,15 +160,22 @@
     .character-card p { margin: 0; color: var(--muted); line-height: 1.65; font-size: 14px; }
     .trait-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 15px; }
     .trait { padding: 5px 8px; border-radius: 5px; background: var(--green-soft); color: var(--green-dark); font-size: 12px; font-weight: 900; }
-    .shop-layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 18px; }
+    .shop-layout { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 18px; }
     .shop-main { min-width: 0; }
-    .shop-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-    .tabs { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 7px; background: #e7ebe8; }
-    .tab { min-height: 34px; border: 0; border-radius: 5px; padding: 0 12px; background: transparent; color: var(--muted); font-weight: 900; cursor: pointer; }
-    .tab.active { background: #fff; color: var(--ink); box-shadow: 0 2px 8px rgba(26,42,35,.1); }
-    .offer-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .catalog-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
+    .catalog-column {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,.52);
+      overflow: hidden;
+    }
+    .catalog-head { padding: 13px 14px; border-bottom: 1px solid var(--line); background: #fff; }
+    .catalog-head h2 { margin: 0 0 4px; font-size: 17px; }
+    .catalog-head p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .offer-grid { display: grid; gap: 8px; padding: 8px; max-height: 660px; overflow: auto; }
     .offer {
-      min-height: 250px;
+      min-height: 205px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -203,6 +210,29 @@
     .side-section { padding: 16px; border-bottom: 1px solid var(--line); }
     .side-section:last-child { border-bottom: 0; }
     .side-section h3 { margin: 0 0 10px; font-size: 15px; }
+    .strategy-editor { display: grid; gap: 7px; }
+    .strategy-slot {
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      gap: 7px;
+      align-items: center;
+    }
+    .strategy-slot span { color: var(--muted); font-size: 12px; font-weight: 900; text-align: center; }
+    .strategy-slot select {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid #cbd5cf;
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 0 8px;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .database-list { display: grid; gap: 6px; }
+    .database-row { padding: 8px; border-radius: 5px; background: var(--paper-2); font-size: 11px; line-height: 1.5; color: var(--muted); }
+    .database-row.current { background: var(--green-soft); color: var(--green-dark); }
     .deck-list { display: grid; gap: 6px; max-height: 240px; overflow: auto; }
     .deck-item { display: flex; justify-content: space-between; gap: 8px; padding: 7px 8px; border-radius: 5px; background: var(--paper-2); font-size: 12px; }
     .empty { color: var(--muted); font-size: 13px; line-height: 1.6; }
@@ -371,7 +401,9 @@
       .topbar { align-items: flex-start; }
       .brand span { display: none; }
       .stat { min-height: 30px; padding: 0 7px; }
-      .character-grid, .offer-grid { grid-template-columns: 1fr; }
+      .character-grid { grid-template-columns: 1fr; }
+      .catalog-columns { grid-template-columns: 1fr; }
+      .offer-grid { max-height: none; }
       .character-card:first-child { grid-column: auto; }
       .character-card { min-height: 330px; }
       .side-panel { display: block; }
@@ -408,7 +440,7 @@
         <div class="hero-inner">
           <div class="hero-mark">DRAW · LEVEL 001</div>
           <h1 class="hero-title">商店战斗循环</h1>
-          <p class="hero-copy">从空卡组和 20c 开始。购买卡牌、调整抽牌策略、构筑武器牌链，在三次失败前尽可能赢下更多战斗。</p>
+          <p class="hero-copy">从空卡组和 40c 开始。购买卡牌、编排六槽抽牌策略、构筑单手剑牌链，在三次失败前尽可能赢下更多战斗。</p>
           <button id="startBtn" class="primary">开始游戏</button>
         </div>
       </div>
@@ -461,7 +493,7 @@
       <header class="topbar">
         <div class="brand"><strong>开局商店</strong><span id="shopSubtitle">为第 1 场战斗构筑</span></div>
         <div class="run-stats">
-          <span class="stat gold">金币 <b id="shopGold">20c</b></span>
+          <span class="stat gold">金币 <b id="shopGold">40c</b></span>
           <span class="stat">胜场 <b id="shopWins">0</b></span>
           <span class="stat loss">失败 <b id="shopLosses">0/3</b></span>
         </div>
@@ -470,21 +502,25 @@
         <div class="section-head">
           <div>
             <h1 id="shopHeading">开局商店</h1>
-            <p>购买卡牌、抽牌策略和牌链道具。至少准备足够填满一件武器的卡牌才能离店。</p>
+            <p>战斗卡牌、抽牌策略和武器分栏陈列。至少购买一把单手剑并准备三张卡牌才能离店。</p>
           </div>
         </div>
         <div class="shop-layout">
           <main class="shop-main">
-            <div class="shop-toolbar">
-              <div class="tabs" role="tablist">
-                <button class="tab active" data-filter="all">全部</button>
-                <button class="tab" data-filter="card">卡牌</button>
-                <button class="tab" data-filter="strategy">策略</button>
-                <button class="tab" data-filter="chain">牌链</button>
-              </div>
-              <button id="refreshBtn" class="ghost" title="花费 2c 刷新商店">刷新 2c</button>
+            <div class="catalog-columns">
+              <section class="catalog-column">
+                <div class="catalog-head"><h2>战斗卡牌</h2><p>中立与战士图鉴卡牌，可重复购买。</p></div>
+                <div id="cardOfferGrid" class="offer-grid"></div>
+              </section>
+              <section class="catalog-column">
+                <div class="catalog-head"><h2>抽牌策略</h2><p>购买后可装入六个策略槽位。</p></div>
+                <div id="strategyOfferGrid" class="offer-grid"></div>
+              </section>
+              <section class="catalog-column">
+                <div class="catalog-head"><h2>武器</h2><p>武器按排列顺序依次接收待封装卡牌。</p></div>
+                <div id="weaponOfferGrid" class="offer-grid"></div>
+              </section>
             </div>
-            <div id="offerGrid" class="offer-grid"></div>
           </main>
           <aside class="side-panel">
             <section class="side-section">
@@ -492,8 +528,16 @@
               <div id="deckList" class="deck-list"></div>
             </section>
             <section class="side-section">
+              <h3>六槽抽牌策略</h3>
+              <div id="strategyEditor" class="strategy-editor"></div>
+            </section>
+            <section class="side-section">
               <h3>构筑配置</h3>
               <div id="buildSummary" class="empty"></div>
+            </section>
+            <section class="side-section">
+              <h3>基础 Build 数据库</h3>
+              <div id="databaseList" class="database-list"></div>
             </section>
             <section class="side-section">
               <div class="shop-actions">
@@ -530,15 +574,17 @@
             <div class="battle-heading">
               <h2 id="battleStateLabel">正在构筑牌链</h2>
               <div class="speed-control" aria-label="战斗速度">
+                <button data-speed="0.1">0.1x</button>
+                <button data-speed="0.5">0.5x</button>
                 <button data-speed="1" class="active">1x</button>
                 <button data-speed="2">2x</button>
                 <button data-speed="4">4x</button>
               </div>
             </div>
-            <div class="strategy-line">V1 · 抽牌策略：<b id="battleStrategy">标准随机</b> · 循环执行抽牌/出牌/弃牌，满足武器槽位规则后自动封装</div>
+            <div class="strategy-line">V1 · 六槽策略循环：<b id="battleStrategy">筹备 ×6</b> · 双方使用各自本轮 Build 自动战斗</div>
             <div class="chain-area">
               <div class="chain-title">
-                <h3>抽牌与封装</h3>
+                <h3>玩家抽牌与封装</h3>
                 <span id="drawProgress" class="draw-progress">策略准备中</span>
               </div>
               <div class="pending-zone">
@@ -547,20 +593,25 @@
               </div>
               <div id="chainSlots" class="slots"></div>
               <div class="chain-meter"><div id="chainProgressFill"></div></div>
+              <div class="chain-title" style="margin-top:18px">
+                <h3>对手武器牌链</h3>
+                <span id="enemyDrawProgress" class="draw-progress">策略准备中</span>
+              </div>
+              <div id="enemyChainSlots"></div>
             </div>
             <div id="battleLog" class="battle-log" aria-live="polite"></div>
           </main>
           <aside class="combatant enemy-side">
-            <div id="enemyPortrait" class="combat-portrait">敌人</div>
+            <div id="enemyPortrait" class="combat-portrait">对手</div>
             <div>
-              <h2 id="enemyName" class="unit-name">训练木偶</h2>
-              <div class="hp-label"><span>生命</span><span id="enemyHpText">60 / 60</span></div>
+              <h2 id="enemyName" class="unit-name">本轮玩家 Build</h2>
+              <div class="hp-label"><span>生命</span><span id="enemyHpText">100 / 100</span></div>
               <div class="bar"><div id="enemyHpFill"></div></div>
             </div>
             <div id="enemyStatuses" class="status-list"></div>
             <div class="enemy-timer">
-              <strong id="enemyIntent">下一击：6 伤害</strong>
-              <div class="timer-track"><div id="enemyTimerFill" class="timer-fill"></div></div>
+              <strong id="enemyIntent">基础数据库 · 第 1 轮 Build</strong>
+              <div id="enemyBuildText" class="empty"></div>
             </div>
           </aside>
         </div>
@@ -610,28 +661,43 @@
       { id:"power", name:"强力击", time:2, rarity:"稀有", price:7, effect:"造成10点伤害，力量加成翻倍", op:"power", amount:10, tags:["attack","heavy"] },
       { id:"borrow", name:"借力打击", time:1, rarity:"史诗", price:9, effect:"造成5点伤害，返还一半本次消耗的蓄力", op:"borrow", amount:5, tags:["attack"] },
       { id:"hurry", name:"着急", time:1, rarity:"稀有", price:6, effect:"获得一层迅捷", op:"haste", amount:1, tags:["buff"] },
-      { id:"defend", name:"防御", time:1, rarity:"普通", price:3, effect:"获得5点格挡", op:"block", amount:5, tags:["defense"] },
-      { id:"counter", name:"防守反击", time:2, rarity:"稀有", price:7, effect:"消耗一半格挡，造成其两倍伤害", op:"counter", amount:1, tags:["attack","defense"] },
-      { id:"stance", name:"守势", time:1, rarity:"稀有", price:7, effect:"下一次攻击造成伤害时获得等量格挡", op:"stance", amount:1, tags:["defense","buff"] },
-      { id:"polish", name:"打磨", time:.5, rarity:"普通", price:4, effect:"武器获得一层锻造", op:"forge", amount:1, tags:["buff"] },
-      { id:"bloodforge", name:"血锻法", time:1, rarity:"稀有", price:7, effect:"受到10点伤害，武器获得两层锻造", op:"bloodforge", amount:2, tags:["buff"] }
+      { id:"defend", name:"防御", time:1, rarity:"普通", price:3, effect:"获得5点格挡", op:"block", amount:5, tags:["defense","block"] },
+      { id:"counter", name:"防守反击", time:2, rarity:"稀有", price:7, effect:"消耗一半格挡，造成其两倍伤害", op:"counter", amount:1, tags:["attack","defense","block"] },
+      { id:"stance", name:"守势", time:1, rarity:"稀有", price:7, effect:"下一次攻击造成伤害时获得等量格挡", op:"stance", amount:1, tags:["defense","buff","block"] },
+      { id:"polish", name:"打磨", time:.5, rarity:"普通", price:4, effect:"武器获得一层锻造", op:"forge", amount:1, tags:["buff","forge"] },
+      { id:"bloodforge", name:"血锻法", time:1, rarity:"稀有", price:7, effect:"受到10点伤害，武器获得两层锻造", op:"bloodforge", amount:2, tags:["buff","forge"] }
     ];
     const STRATEGIES = [
-      { id:"random", name:"标准随机", price:0, effect:"抽一张并打出，不弃牌。" },
-      { id:"attack", name:"进攻检索", price:6, effect:"抽三张，打出第一张攻击牌，弃置其余卡牌。" },
-      { id:"defense", name:"攻守判断", price:6, effect:"抽三张；高于半血打攻击牌，否则打防御牌，弃置其余。" }
+      { id:"prepare_draw", name:"筹备", time:1, rarity:"普通", price:0, effect:"抽一张牌并打出。", tag:"" },
+      { id:"battle_will", name:"战意", time:2, rarity:"普通", price:5, effect:"抽三张牌，打出第一张包含攻击的牌，弃置其他牌。", tag:"attack" },
+      { id:"fortitude", name:"坚毅", time:2, rarity:"普通", price:5, effect:"抽三张牌，打出第一张包含格挡的牌，弃置其他牌。", tag:"block" },
+      { id:"forge_sword", name:"铸剑", time:2, rarity:"普通", price:5, effect:"抽三张牌，打出第一张包含铸造的牌，弃置其他牌。", tag:"forge" }
     ];
-    const CHAIN_ITEMS = [
-      { id:"slot", name:"扩容铆钉", rarity:"稀有", price:8, effect:"战士的武器封装阈值永久 +1，最多 5 槽。" },
-      { id:"tempo", name:"精密齿轮", rarity:"稀有", price:7, effect:"所有已封装牌链的卡牌执行时间永久缩短 15%。" },
-      { id:"reinforce", name:"加固握柄", rarity:"普通", price:5, effect:"每场战斗开始时获得 8 点格挡。" }
-    ];
-    const ENEMIES = [
-      { name:"训练木偶", hp:52, damage:6, interval:3.4 },
-      { name:"荒野盗匪", hp:68, damage:8, interval:3.1 },
-      { name:"铁甲佣兵", hp:86, damage:10, interval:3.2 },
-      { name:"赤刃队长", hp:104, damage:13, interval:2.9 },
-      { name:"锻炉守卫", hp:126, damage:16, interval:2.8 }
+    const WEAPON = {
+      id:"one_hand_sword", name:"单手剑", price:10, slots:3, attackTime:1,
+      effect:"三格槽位。每完成一次牌链，经过1s造成20点伤害。", damage:20
+    };
+    const BASELINE_BUILDS = [
+      {
+        round:1, result:"胜利", cards:["stab","defend","prepare"],
+        strategies:["prepare_draw","prepare_draw","prepare_draw","prepare_draw","prepare_draw","prepare_draw"], weapons:1
+      },
+      {
+        round:2, result:"胜利", cards:["stab","defend","prepare","strength","heavy","defend"],
+        strategies:["battle_will","prepare_draw","prepare_draw","prepare_draw","prepare_draw","prepare_draw"], weapons:2
+      },
+      {
+        round:3, result:"胜利", cards:["stab","defend","prepare","strength","heavy","defend","polish","power","wait"],
+        strategies:["battle_will","forge_sword","prepare_draw","prepare_draw","prepare_draw","prepare_draw"], weapons:3
+      },
+      {
+        round:4, result:"胜利", cards:["stab","defend","prepare","strength","heavy","defend","polish","power","wait","counter","stance","hurry"],
+        strategies:["battle_will","fortitude","forge_sword","prepare_draw","prepare_draw","prepare_draw"], weapons:4
+      },
+      {
+        round:5, result:"胜利", cards:["stab","defend","prepare","strength","heavy","defend","polish","power","wait","counter","stance","hurry","double","potential","borrow"],
+        strategies:["battle_will","fortitude","forge_sword","battle_will","fortitude","prepare_draw"], weapons:5
+      }
     ];
 
     const screens = {
@@ -642,9 +708,10 @@
       end: document.querySelector("#endScreen")
     };
     const state = {
-      gold:20, wins:0, losses:0, battleNumber:1, deck:[],
-      strategy:"random", slots:3, tempo:1, reinforce:0,
-      offers:[], filter:"all", shopVisits:0, exitGold:0,
+      gold:40, wins:0, losses:0, battleNumber:1, deck:[],
+      unlockedStrategies:["prepare_draw"],
+      strategySlots:Array(6).fill("prepare_draw"),
+      weapons:0, shopVisits:0, exitGold:0, sessionRecords:[],
       battle:null, speed:1, raf:0, lastTime:0
     };
 
@@ -655,12 +722,12 @@
     function resetRun() {
       cancelAnimationFrame(state.raf);
       Object.assign(state, {
-        gold:20, wins:0, losses:0, battleNumber:1, deck:[],
-        strategy:"random", slots:3, tempo:1, reinforce:0,
-        offers:[], filter:"all", shopVisits:0, exitGold:0,
+        gold:40, wins:0, losses:0, battleNumber:1, deck:[],
+        unlockedStrategies:["prepare_draw"],
+        strategySlots:Array(6).fill("prepare_draw"),
+        weapons:0, shopVisits:0, exitGold:0, sessionRecords:[],
         battle:null, speed:1, raf:0, lastTime:0
       });
-      document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.filter === "all"));
       document.querySelector("#resultOverlay").classList.remove("open");
     }
     function toast(message) {
@@ -679,326 +746,389 @@
       return out;
     }
     function cardById(id) { return CARDS.find(card => card.id === id); }
-    function strategyById(id) { return STRATEGIES.find(strategy => strategy.id === id); }
+    function strategyById(id) { return STRATEGIES.find(strategy => strategy.id === id) || STRATEGIES[0]; }
     function interestFor(gold) { return Math.min(5, Math.floor(gold / 5)); }
     function rarityPrice(rarity) { return ({ "普通":3, "稀有":6, "史诗":9, "传说":12 })[rarity] || 4; }
 
-    function generateOffers() {
-      const ownedCounts = state.deck.reduce((map, id) => (map[id] = (map[id] || 0) + 1, map), {});
-      const cheapCards = shuffle(CARDS.filter(card => card.price <= 3)).slice(0, 3);
-      const otherCards = shuffle(CARDS.filter(card => !cheapCards.includes(card))).slice(0, 3);
-      const cardPool = shuffle([...cheapCards, ...otherCards]).map(card => ({
-        uid:`card-${card.id}-${Math.random()}`, type:"card", ref:card.id, name:card.name,
-        rarity:card.rarity, price:card.price || rarityPrice(card.rarity), effect:card.effect,
-        meta:`${card.time}s · 已有 ${ownedCounts[card.id] || 0} 张`, sold:false
-      }));
-      const strategyPool = shuffle(STRATEGIES.filter(item => item.id !== "random" && item.id !== state.strategy)).slice(0, 1).map(item => ({
-        uid:`strategy-${item.id}-${Math.random()}`, type:"strategy", ref:item.id, name:item.name,
-        rarity:"稀有", price:item.price, effect:item.effect, meta:"购买后立即启用", sold:false
-      }));
-      const chainPool = shuffle(CHAIN_ITEMS.filter(item => item.id !== "slot" || state.slots < 5)).slice(0, 2).map(item => ({
-        uid:`chain-${item.id}-${Math.random()}`, type:"chain", ref:item.id, name:item.name,
-        rarity:item.rarity, price:item.price, effect:item.effect, meta:"永久生效", sold:false
-      }));
-      state.offers = shuffle([...cardPool, ...strategyPool, ...chainPool]).slice(0, 8);
+    function buildSnapshot() {
+      return {
+        cards:[...state.deck],
+        strategies:[...state.strategySlots],
+        weapons:state.weapons
+      };
     }
-    function openShop() {
+
+    function openShopV2() {
       cancelAnimationFrame(state.raf);
       state.shopVisits += 1;
-      state.filter = "all";
-      generateOffers();
-      document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.filter === "all"));
-      renderShop();
+      renderShopV2();
       showScreen("shop");
     }
-    function renderShop() {
+
+    function cardCountMap(cards) {
+      return cards.reduce((map, id) => {
+        map[id] = (map[id] || 0) + 1;
+        return map;
+      }, {});
+    }
+
+    function renderShopV2() {
       document.querySelector("#shopGold").textContent = `${state.gold}c`;
       document.querySelector("#shopWins").textContent = state.wins;
       document.querySelector("#shopLosses").textContent = `${state.losses}/3`;
       document.querySelector("#shopSubtitle").textContent = `为第 ${state.battleNumber} 场战斗构筑`;
       document.querySelector("#shopHeading").textContent = state.shopVisits === 1 ? "开局商店" : `第 ${state.shopVisits} 次商店`;
       document.querySelector("#interestPreview").textContent = `+${interestFor(state.gold)}c`;
-      document.querySelector("#refreshBtn").disabled = state.gold < 2;
-      const deckCounts = state.deck.reduce((map, id) => (map[id] = (map[id] || 0) + 1, map), {});
+
+      const counts = cardCountMap(state.deck);
       document.querySelector("#deckCount").textContent = `(${state.deck.length})`;
       document.querySelector("#deckList").innerHTML = state.deck.length
-        ? Object.entries(deckCounts).map(([id, count]) => `<div class="deck-item"><span>${cardById(id).name}</span><b>×${count}</b></div>`).join("")
-        : `<div class="empty">当前没有卡牌。至少购买一张卡牌才能进入战斗。</div>`;
-      document.querySelector("#buildSummary").innerHTML =
-        `策略：<b>${strategyById(state.strategy).name}</b><br>` +
-        `武器槽：<b>${state.slots}</b><br>` +
-        `执行速度：<b>${Math.round((1 - state.tempo) * 100)}% 加速</b><br>` +
-        `开场格挡：<b>${state.reinforce}</b>`;
-      const canSealWeapon = state.deck.length >= state.slots;
-      document.querySelector("#leaveShopBtn").disabled = !canSealWeapon;
-      document.querySelector("#leaveShopBtn").textContent = canSealWeapon ? "进入战斗" : `还需 ${state.slots - state.deck.length} 张卡牌`;
-      renderOffers();
-    }
-    function renderOffers() {
-      const offers = state.offers.filter(offer => state.filter === "all" || offer.type === state.filter);
-      document.querySelector("#offerGrid").innerHTML = offers.map(offer => `
-        <article class="offer ${offer.sold ? "sold" : ""}">
+        ? Object.entries(counts).map(([id, count]) => `<div class="deck-item"><span>${cardById(id).name}</span><b>×${count}</b></div>`).join("")
+        : `<div class="empty">当前没有战斗卡牌。</div>`;
+
+      document.querySelector("#cardOfferGrid").innerHTML = CARDS.map(card => `
+        <article class="offer">
           <div>
-            <div class="offer-top"><span class="rarity ${offer.rarity}">${offer.rarity}</span><span class="price">${offer.price}c</span></div>
-            <h3>${offer.name}</h3>
-            <p>${offer.effect}</p>
-            <div class="meta">${offer.meta}</div>
+            <div class="offer-top"><span class="rarity ${card.rarity}">${card.rarity}</span><span class="price">${card.price}c</span></div>
+            <h3>${card.name}</h3>
+            <p>${card.effect}</p>
+            <div class="meta">${card.time}s · 已有 ${counts[card.id] || 0} 张</div>
           </div>
-          <button class="${offer.sold ? "ghost" : "secondary"}" data-buy="${offer.uid}" ${offer.sold || state.gold < offer.price ? "disabled" : ""}>${offer.sold ? "已购买" : "购买"}</button>
+          <button class="secondary" data-buy-card="${card.id}" ${state.gold < card.price ? "disabled" : ""}>购买</button>
         </article>
-      `).join("") || `<div class="empty">这一分类本次没有商品。</div>`;
-    }
-    function buyOffer(uid) {
-      const offer = state.offers.find(item => item.uid === uid);
-      if (!offer || offer.sold || state.gold < offer.price) return;
-      state.gold -= offer.price;
-      offer.sold = true;
-      if (offer.type === "card") state.deck.push(offer.ref);
-      if (offer.type === "strategy") state.strategy = offer.ref;
-      if (offer.type === "chain") {
-        if (offer.ref === "slot") state.slots = Math.min(5, state.slots + 1);
-        if (offer.ref === "tempo") state.tempo = Math.max(.55, state.tempo * .85);
-        if (offer.ref === "reinforce") state.reinforce += 8;
-      }
-      toast(`已购买「${offer.name}」`);
-      renderShop();
+      `).join("");
+
+      document.querySelector("#strategyOfferGrid").innerHTML = STRATEGIES.filter(strategy => strategy.id !== "prepare_draw").map(strategy => {
+        const unlocked = state.unlockedStrategies.includes(strategy.id);
+        return `
+          <article class="offer ${unlocked ? "sold" : ""}">
+            <div>
+              <div class="offer-top"><span class="rarity">${strategy.rarity}</span><span class="price">${strategy.price}c</span></div>
+              <h3>${strategy.name}</h3>
+              <p>${strategy.effect}</p>
+              <div class="meta">${strategy.time}s</div>
+            </div>
+            <button class="${unlocked ? "ghost" : "secondary"}" data-buy-strategy="${strategy.id}" ${unlocked || state.gold < strategy.price ? "disabled" : ""}>${unlocked ? "已解锁" : "购买"}</button>
+          </article>
+        `;
+      }).join("");
+
+      document.querySelector("#weaponOfferGrid").innerHTML = `
+        <article class="offer">
+          <div>
+            <div class="offer-top"><span class="rarity">标准模板</span><span class="price">${WEAPON.price}c</span></div>
+            <h3>${WEAPON.name}</h3>
+            <p>${WEAPON.effect}</p>
+            <div class="meta">当前持有 ${state.weapons} 把</div>
+          </div>
+          <button class="secondary" data-buy-weapon="${WEAPON.id}" ${state.gold < WEAPON.price ? "disabled" : ""}>购买</button>
+        </article>
+      `;
+
+      const options = state.unlockedStrategies.map(id => {
+        const strategy = strategyById(id);
+        return `<option value="${id}">${strategy.name} · ${strategy.time}s</option>`;
+      }).join("");
+      document.querySelector("#strategyEditor").innerHTML = state.strategySlots.map((id, index) => `
+        <label class="strategy-slot">
+          <span>${index + 1}</span>
+          <select data-strategy-slot="${index}">${options.replace(`value="${id}"`, `value="${id}" selected`)}</select>
+        </label>
+      `).join("");
+
+      document.querySelector("#buildSummary").innerHTML =
+        `角色：<b>战士</b><br>` +
+        `武器：<b>${WEAPON.name} ×${state.weapons}</b><br>` +
+        `封装顺序：<b>从上到下</b><br>` +
+        `策略循环：<b>${state.strategySlots.map(id => strategyById(id).name).join(" → ")}</b>`;
+
+      const baselineRows = BASELINE_BUILDS.map(build => `
+        <div class="database-row ${Math.min(state.battleNumber, 5) === build.round ? "current" : ""}">
+          <b>第 ${build.round} 轮 · 模拟${build.result}</b><br>
+          ${build.cards.length} 张牌 · ${build.weapons} 把单手剑
+        </div>
+      `).join("");
+      const recordedRows = state.sessionRecords.map(record => `
+        <div class="database-row">
+          <b>玩家记录 · 第 ${record.round} 轮${record.won ? "胜利" : "失败"}</b><br>
+          ${record.build.cards.length} 张牌 · ${record.build.weapons} 把单手剑
+        </div>
+      `).join("");
+      document.querySelector("#databaseList").innerHTML = baselineRows + recordedRows;
+
+      const canBattle = state.weapons > 0 && state.deck.length >= WEAPON.slots;
+      const leaveButton = document.querySelector("#leaveShopBtn");
+      leaveButton.disabled = !canBattle;
+      leaveButton.textContent = state.weapons === 0
+        ? "需要购买单手剑"
+        : state.deck.length < WEAPON.slots
+          ? `还需 ${WEAPON.slots - state.deck.length} 张卡牌`
+          : "进入战斗";
     }
 
-    function createBattle() {
-      const tier = Math.min(ENEMIES.length - 1, Math.floor((state.battleNumber - 1) / 2));
-      const base = ENEMIES[tier];
-      const scale = 1 + Math.max(0, state.battleNumber - 1) * .09;
-      const enemyMaxHp = Math.round(base.hp * scale);
-      const battleDeck = shuffle(state.deck);
-      state.battle = {
-        player:{ hp:100, maxHp:100, block:state.reinforce, charge:0, strength:0, haste:0, double:0, stance:0 },
-        enemy:{ hp:enemyMaxHp, maxHp:enemyMaxHp, block:0 },
-        enemyInfo:{ name:base.name, damage:Math.round(base.damage * (1 + (state.battleNumber - 1) * .07)), interval:base.interval },
-        deck:battleDeck, discard:[], pending:[], chains:[], drawTimer:0, drawDuration:1.15,
-        enemyTimer:0, ended:false, logs:[]
+    function buyCardV2(cardId) {
+      const card = cardById(cardId);
+      if (!card || state.gold < card.price) return;
+      state.gold -= card.price;
+      state.deck.push(card.id);
+      toast(`已购买「${card.name}」`);
+      renderShopV2();
+    }
+
+    function buyStrategyV2(strategyId) {
+      const strategy = strategyById(strategyId);
+      if (!strategy || strategy.id === "prepare_draw" || state.unlockedStrategies.includes(strategy.id) || state.gold < strategy.price) return;
+      state.gold -= strategy.price;
+      state.unlockedStrategies.push(strategy.id);
+      toast(`已解锁「${strategy.name}」`);
+      renderShopV2();
+    }
+
+    function buyWeaponV2() {
+      if (state.gold < WEAPON.price) return;
+      state.gold -= WEAPON.price;
+      state.weapons += 1;
+      toast(`已购买「${WEAPON.name}」`);
+      renderShopV2();
+    }
+
+    function createActor(build, name) {
+      return {
+        name, hp:100, maxHp:100, block:0, charge:0, strength:0, haste:0, double:0, stance:0,
+        deck:shuffle(build.cards), discard:[], pending:[], chains:[],
+        strategies:[...build.strategies], strategyIndex:0, strategyTimer:0,
+        strategyDuration:strategyById(build.strategies[0]).time,
+        weapons:Array.from({length:build.weapons}, (_, index) => ({ index:index + 1, used:false }))
       };
+    }
+
+    function createBattleV2() {
+      const databaseBuild = BASELINE_BUILDS[Math.min(state.battleNumber, 5) - 1];
+      state.battle = {
+        player:createActor(buildSnapshot(), "玩家"),
+        enemy:createActor(databaseBuild, `第 ${databaseBuild.round} 轮玩家 Build`),
+        databaseBuild, ended:false, logs:[]
+      };
+      state.exitGold = state.gold;
       state.speed = 1;
-      document.querySelectorAll("[data-speed]").forEach(btn => btn.classList.toggle("active", btn.dataset.speed === "1"));
-      logBattle(`第 ${state.battleNumber} 场战斗开始。正在使用「${strategyById(state.strategy).name}」构筑武器牌链。`);
-      if (state.reinforce) logBattle(`加固握柄提供 <b>${state.reinforce}</b> 点开场格挡。`);
-      renderBattle();
+      document.querySelectorAll("[data-speed]").forEach(button => button.classList.toggle("active", Number(button.dataset.speed) === 1));
+      logBattleV2(`第 ${state.battleNumber} 场开始：玩家 Build 对阵基础数据库第 ${databaseBuild.round} 轮 Build。`);
+      renderBattleV2();
       showScreen("battle");
       state.lastTime = performance.now();
-      state.raf = requestAnimationFrame(battleLoop);
+      state.raf = requestAnimationFrame(battleLoopV2);
     }
-    function drawOne() {
-      const battle = state.battle;
-      if (!battle.deck.length) {
-        battle.deck = shuffle(battle.discard);
-        battle.discard = [];
+
+    function drawOneV2(actor) {
+      if (!actor.deck.length && actor.discard.length) {
+        actor.deck = shuffle(actor.discard);
+        actor.discard = [];
       }
-      return battle.deck.shift();
+      return actor.deck.shift();
     }
-    function executeDrawStrategy() {
-      const battle = state.battle;
-      const count = state.strategy === "random" ? 1 : 3;
+
+    function executeStrategyV2(actor) {
+      const strategy = strategyById(actor.strategies[actor.strategyIndex]);
       const drawn = [];
-      for (let i = 0; i < count; i += 1) {
-        const id = drawOne();
-        if (id) drawn.push(id);
+      const drawCount = strategy.id === "prepare_draw" ? 1 : 3;
+      for (let index = 0; index < drawCount; index += 1) {
+        const cardId = drawOneV2(actor);
+        if (cardId) drawn.push(cardId);
       }
-      if (!drawn.length) return;
-      let wantedTag = "";
-      if (state.strategy === "attack") wantedTag = "attack";
-      if (state.strategy === "defense") wantedTag = battle.player.hp > battle.player.maxHp / 2 ? "attack" : "defense";
-      let chosenIndex = wantedTag ? drawn.findIndex(id => cardById(id).tags.includes(wantedTag)) : 0;
-      if (chosenIndex < 0) chosenIndex = 0;
-      const [chosen] = drawn.splice(chosenIndex, 1);
-      battle.pending.push(chosen);
-      battle.discard.push(...drawn);
-      const drawnNames = [chosen, ...drawn].map(id => cardById(id).name).join("、");
-      const discarded = drawn.length ? `，弃置 ${drawn.map(id => cardById(id).name).join("、")}` : "";
-      logBattle(`「<b>${strategyById(state.strategy).name}</b>」抽到 ${drawnNames}，打出 ${cardById(chosen).name}${discarded}。`);
-      if (battle.pending.length >= state.slots) sealChain();
+      let chosenIndex = strategy.id === "prepare_draw" ? 0 : drawn.findIndex(id => cardById(id).tags.includes(strategy.tag));
+      const chosen = chosenIndex >= 0 ? drawn.splice(chosenIndex, 1)[0] : "";
+      actor.discard.push(...drawn);
+      if (chosen) {
+        actor.pending.push(chosen);
+        logBattleV2(`${actor.name} 的「<b>${strategy.name}</b>」打出 ${cardById(chosen).name}${drawn.length ? `，弃置 ${drawn.map(id => cardById(id).name).join("、")}` : ""}。`);
+        trySealV2(actor);
+      } else if (drawn.length) {
+        logBattleV2(`${actor.name} 的「<b>${strategy.name}</b>」未找到目标，弃置 ${drawn.map(id => cardById(id).name).join("、")}。`);
+      }
+      actor.strategyIndex = (actor.strategyIndex + 1) % actor.strategies.length;
+      const next = strategyById(actor.strategies[actor.strategyIndex]);
+      actor.strategyDuration = next.time * (actor.haste > 0 ? .5 : 1);
+      if (actor.haste > 0) actor.haste -= 1;
     }
-    function sealChain() {
-      const battle = state.battle;
-      const cards = battle.pending.splice(0, state.slots);
-      const chain = {
-        cards, index:0, timer:0, duration:effectiveCardTime(cardById(cards[0])),
-        forge:0, number:battle.chains.length + 1
-      };
-      battle.chains.push(chain);
-      logBattle(`满足 ${state.slots} 槽武器封装策略，生成「<b>武器 ${chain.number}</b>」并开始循环。`);
+
+    function trySealV2(actor) {
+      const weapon = actor.weapons.find(item => !item.used);
+      if (!weapon || actor.pending.length < WEAPON.slots) return;
+      weapon.used = true;
+      const cards = actor.pending.splice(0, WEAPON.slots);
+      actor.chains.push({
+        weapon, cards, cardIndex:0, cardTimer:0, cardDuration:cardById(cards[0]).time,
+        weaponTimer:0, waitingWeapon:false, forge:0
+      });
+      logBattleV2(`${actor.name} 将 ${cards.map(id => cardById(id).name).join("、")} 封装进单手剑 ${weapon.index}。`);
     }
-    function effectiveCardTime(card) {
-      const hasteMultiplier = state.battle.player.haste > 0 ? .5 : 1;
-      return Math.max(.18, card.time * state.tempo * hasteMultiplier);
+
+    function roundValue(value) {
+      return Math.round(value * 100) / 100;
     }
-    function dealDamage(target, amount) {
-      const absorbed = Math.min(target.block || 0, amount);
-      target.block -= absorbed;
-      target.hp = Math.max(0, target.hp - (amount - absorbed));
-      return { dealt:amount - absorbed, absorbed };
+
+    function dealDamageV2(target, amount) {
+      const value = roundValue(amount);
+      const absorbed = Math.min(target.block, value);
+      target.block = roundValue(target.block - absorbed);
+      const dealt = roundValue(value - absorbed);
+      target.hp = Math.max(0, roundValue(target.hp - dealt));
+      return { absorbed, dealt };
     }
-    function playerAttack(base, chain, strengthMultiplier = 1, returnCharge = false) {
-      const battle = state.battle;
-      const p = battle.player;
-      const chargeBefore = p.charge;
-      const chargeMultiplier = Math.pow(1.2, chargeBefore);
-      const forgeMultiplier = 1 + chain.forge * .08;
-      const amount = Math.max(0, Math.round((base + p.strength * strengthMultiplier) * chargeMultiplier * forgeMultiplier));
-      p.charge = 0;
-      const hits = p.double > 0 ? 2 : 1;
-      p.double = Math.max(0, p.double - 1);
+
+    function attackV2(source, target, base, chain, strengthMultiplier = 1, returnCharge = false) {
+      const chargeBefore = source.charge;
+      const amount = roundValue((base + source.strength * strengthMultiplier) * Math.pow(1.2, chargeBefore));
+      source.charge = 0;
+      const hits = source.double > 0 ? 2 : 1;
+      source.double = Math.max(0, source.double - 1);
       let total = 0;
-      for (let i = 0; i < hits; i += 1) total += dealDamage(battle.enemy, amount).dealt;
-      if (returnCharge) p.charge += Math.floor(chargeBefore / 2);
-      if (p.stance > 0) {
-        p.block += total;
-        p.stance -= 1;
-        logBattle(`守势将本次伤害转化为 <b>${total}</b> 点格挡。`);
+      for (let index = 0; index < hits; index += 1) total = roundValue(total + dealDamageV2(target, amount).dealt);
+      if (returnCharge) source.charge += Math.floor(chargeBefore / 2);
+      if (source.stance > 0) {
+        source.block = roundValue(source.block + total);
+        source.stance -= 1;
       }
       return total;
     }
-    function executeCard(card, chain) {
-      const b = state.battle;
-      const p = b.player;
+
+    function executeCardV2(source, target, card, chain) {
       let message = "";
       switch (card.op) {
-        case "wait": message = "等待结束，无事发生。"; break;
-        case "damage": message = `造成 <b>${playerAttack(card.amount, chain)}</b> 点伤害。`; break;
-        case "double": p.double += 1; message = "下一次攻击将触发两次。"; break;
-        case "charge": p.charge += card.amount; message = `获得 ${card.amount} 层蓄力。`; break;
-        case "strength": p.strength += card.amount; message = `获得 ${card.amount} 层力量。`; break;
+        case "wait": message = "无效果。"; break;
+        case "damage": message = `造成 <b>${attackV2(source, target, card.amount, chain)}</b> 点伤害。`; break;
+        case "double": source.double += 1; message = "下一次攻击触发两次。"; break;
+        case "charge": source.charge += card.amount; message = `获得 ${card.amount} 层蓄力。`; break;
+        case "strength": source.strength += card.amount; message = `获得 ${card.amount} 层力量。`; break;
         case "potential": {
-          const amount = p.strength; p.strength = 0; p.charge += amount;
-          message = `消耗 ${amount} 层力量，转化为等量蓄力。`; break;
+          const amount = source.strength;
+          source.strength = 0;
+          source.charge += amount;
+          message = `消耗 ${amount} 层力量，获得等量蓄力。`;
+          break;
         }
-        case "power": message = `造成 <b>${playerAttack(card.amount, chain, 2)}</b> 点强力伤害。`; break;
-        case "borrow": message = `造成 <b>${playerAttack(card.amount, chain, 1, true)}</b> 点借力伤害。`; break;
-        case "haste": p.haste += 1; message = "获得 1 层迅捷。"; break;
-        case "block": p.block += card.amount; message = `获得 ${card.amount} 点格挡。`; break;
+        case "power": message = `造成 <b>${attackV2(source, target, card.amount, chain, 2)}</b> 点伤害。`; break;
+        case "borrow": message = `造成 <b>${attackV2(source, target, card.amount, chain, 1, true)}</b> 点伤害。`; break;
+        case "haste": source.haste += 1; message = "获得一层迅捷。"; break;
+        case "block": source.block += card.amount; message = `获得 ${card.amount} 点格挡。`; break;
         case "counter": {
-          const spent = Math.floor(p.block / 2); p.block -= spent;
-          const dealt = dealDamage(b.enemy, spent * 2).dealt;
-          message = `消耗 ${spent} 点格挡，反击造成 <b>${dealt}</b> 点伤害。`; break;
+          const spent = Math.floor(source.block / 2);
+          source.block -= spent;
+          message = `消耗 ${spent} 点格挡，造成 <b>${dealDamageV2(target, spent * 2).dealt}</b> 点伤害。`;
+          break;
         }
-        case "stance": p.stance += 1; message = "进入守势，等待下一次攻击。"; break;
-        case "forge": chain.forge += card.amount; message = `武器 ${chain.number} 获得 ${card.amount} 层锻造。`; break;
+        case "stance": source.stance += 1; message = "下一次攻击造成伤害时获得等量格挡。"; break;
+        case "forge": chain.forge += 1; message = `单手剑 ${chain.weapon.index} 获得一层锻造。`; break;
         case "bloodforge": {
-          const hit = dealDamage(p, 10); chain.forge += card.amount;
-          message = `自身受到 ${hit.dealt} 点伤害，武器 ${chain.number} 获得 ${card.amount} 层锻造。`; break;
+          const selfDamage = dealDamageV2(source, 10).dealt;
+          chain.forge += 2;
+          message = `受到 ${selfDamage} 点伤害，单手剑 ${chain.weapon.index} 获得两层锻造。`;
+          break;
         }
       }
-      logBattle(`「<b>${card.name}</b>」${message}`);
+      logBattleV2(`${source.name} 的「<b>${card.name}</b>」${message}`);
     }
-    function enemyAttack() {
-      const b = state.battle;
-      const result = dealDamage(b.player, b.enemyInfo.damage);
-      logBattle(`${b.enemyInfo.name} 发动攻击：格挡吸收 ${result.absorbed}，受到 <b>${result.dealt}</b> 点伤害。`);
-    }
-    function updateBattle(dt) {
-      const b = state.battle;
-      if (!b || b.ended) return;
-      b.enemyTimer += dt;
-      if (b.enemyTimer >= b.enemyInfo.interval) {
-        b.enemyTimer -= b.enemyInfo.interval;
-        enemyAttack();
+
+    function updateActorV2(actor, target, dt) {
+      actor.strategyTimer += dt;
+      if (actor.strategyTimer >= actor.strategyDuration) {
+        actor.strategyTimer = 0;
+        executeStrategyV2(actor);
       }
-      b.drawTimer += dt;
-      const drawDuration = b.drawDuration * (b.player.haste > 0 ? .5 : 1);
-      if (b.drawTimer >= drawDuration) {
-        b.drawTimer = 0;
-        if (b.player.haste > 0) b.player.haste -= 1;
-        executeDrawStrategy();
-      }
-      b.chains.forEach(chain => {
-        chain.timer += dt;
-        if (chain.timer >= chain.duration) {
-          chain.timer = 0;
-          executeCard(cardById(chain.cards[chain.index]), chain);
-          chain.index = (chain.index + 1) % chain.cards.length;
-          chain.duration = effectiveCardTime(cardById(chain.cards[chain.index]));
+      actor.chains.forEach(chain => {
+        if (chain.waitingWeapon) {
+          chain.weaponTimer += dt;
+          if (chain.weaponTimer >= WEAPON.attackTime) {
+            chain.weaponTimer = 0;
+            chain.waitingWeapon = false;
+            const damage = attackV2(actor, target, WEAPON.damage, chain);
+            logBattleV2(`${actor.name} 的单手剑 ${chain.weapon.index} 造成 <b>${damage}</b> 点伤害。`);
+          }
+          return;
+        }
+        chain.cardTimer += dt;
+        if (chain.cardTimer >= chain.cardDuration) {
+          chain.cardTimer = 0;
+          executeCardV2(actor, target, cardById(chain.cards[chain.cardIndex]), chain);
+          chain.cardIndex += 1;
+          if (chain.cardIndex >= chain.cards.length) {
+            chain.cardIndex = 0;
+            chain.waitingWeapon = true;
+          }
+          chain.cardDuration = cardById(chain.cards[chain.cardIndex]).time;
         }
       });
-      if (!b.deck.length && !b.discard.length && b.pending.length && b.pending.length < state.slots) {
-        // A partial final weapon stays pending; every physical card can only belong to one active chain.
-      }
-      if (b.enemy.hp <= 0) finishBattle(true);
-      else if (b.player.hp <= 0) finishBattle(false);
     }
-    function finishBattle(won) {
-      const b = state.battle;
-      if (b.ended) return;
-      b.ended = true;
+
+    function updateBattleV2(dt) {
+      const battle = state.battle;
+      if (!battle || battle.ended) return;
+      updateActorV2(battle.player, battle.enemy, dt);
+      if (battle.enemy.hp > 0) updateActorV2(battle.enemy, battle.player, dt);
+      if (battle.enemy.hp <= 0) finishBattleV2(true);
+      else if (battle.player.hp <= 0) finishBattleV2(false);
+    }
+
+    function finishBattleV2(won) {
+      const battle = state.battle;
+      if (battle.ended) return;
+      battle.ended = true;
       cancelAnimationFrame(state.raf);
       const base = won ? 15 : 12;
       const interest = interestFor(state.exitGold);
       state.gold += base + interest;
       if (won) state.wins += 1;
       else state.losses += 1;
+      state.sessionRecords.push({ round:state.battleNumber, won, build:buildSnapshot() });
       const gameOver = state.losses >= 3;
       document.querySelector("#resultTitle").textContent = won ? "战斗胜利" : "战斗失败";
       document.querySelector("#resultMark").textContent = gameOver ? "第三次失败" : "战斗结算";
       document.querySelector("#resultText").textContent = won
-        ? "牌链完成了本场战斗。奖励与利息已经加入下一次商店资金。"
-        : gameOver ? "累计失败达到三次，本轮关卡将在结算后结束。" : "本次构筑未能取胜，但仍会获得失败奖励和利息。";
+        ? "本轮 Build 已获胜，并记录到本次运行数据中。"
+        : gameOver ? "累计失败达到三次，本轮关卡结束。" : "本轮 Build 已记录，下一商店可以继续调整。";
       document.querySelector("#baseReward").textContent = `+${base}c`;
       document.querySelector("#interestReward").textContent = `+${interest}c`;
       document.querySelector("#totalGold").textContent = `${state.gold}c`;
       document.querySelector("#continueBtn").textContent = gameOver ? "查看本局成绩" : "进入下一商店";
       document.querySelector("#resultOverlay").classList.add("open");
-      renderBattle();
+      renderBattleV2();
     }
-    function continueAfterBattle() {
+
+    function continueAfterBattleV2() {
       document.querySelector("#resultOverlay").classList.remove("open");
       if (state.losses >= 3) {
         document.querySelector("#finalWins").textContent = state.wins;
-        document.querySelector("#endSummary").textContent = `完成 ${state.wins + state.losses} 场战斗，取得 ${state.wins} 场胜利。最终持有 ${state.gold}c。`;
+        document.querySelector("#endSummary").textContent = `完成 ${state.wins + state.losses} 场战斗，取得 ${state.wins} 场胜利；记录 ${state.sessionRecords.length} 份玩家 Build。`;
         showScreen("end");
         return;
       }
       state.battleNumber += 1;
-      openShop();
+      openShopV2();
     }
-    function logBattle(html) {
+
+    function logBattleV2(html) {
       if (!state.battle) return;
       state.battle.logs.unshift(html);
-      state.battle.logs = state.battle.logs.slice(0, 32);
+      state.battle.logs = state.battle.logs.slice(0, 40);
     }
-    function statusHtml(actor, player) {
-      const labels = player
-        ? [["block","格挡"],["charge","蓄力"],["strength","力量"],["haste","迅捷"],["double","双击"],["stance","守势"]]
-        : [["block","格挡"]];
-      const rows = labels.filter(([key]) => actor[key] > 0).map(([key,label]) => `<span class="status-pill">${label} ${actor[key]}</span>`);
+
+    function actorStatusesV2(actor) {
+      const labels = [["block","格挡"],["charge","蓄力"],["strength","力量"],["haste","迅捷"],["double","双击"],["stance","守势"]];
+      const rows = labels.filter(([key]) => actor[key] > 0).map(([key, label]) => `<span class="status-pill">${label} ${actor[key]}</span>`);
       return rows.join("") || `<span class="empty">暂无状态</span>`;
     }
-    function renderBattle() {
-      const b = state.battle;
-      if (!b) return;
-      document.querySelector("#battleTitle").textContent = `第 ${state.battleNumber} 场战斗`;
-      document.querySelector("#battleGold").textContent = `${state.exitGold}c`;
-      document.querySelector("#battleWins").textContent = state.wins;
-      document.querySelector("#battleLosses").textContent = `${state.losses}/3`;
-      document.querySelector("#battleStrategy").textContent = strategyById(state.strategy).name;
-      document.querySelector("#playerHpText").textContent = `${b.player.hp} / ${b.player.maxHp}`;
-      document.querySelector("#enemyHpText").textContent = `${b.enemy.hp} / ${b.enemy.maxHp}`;
-      document.querySelector("#playerHpFill").style.transform = `scaleX(${b.player.hp / b.player.maxHp})`;
-      document.querySelector("#enemyHpFill").style.transform = `scaleX(${b.enemy.hp / b.enemy.maxHp})`;
-      document.querySelector("#playerStatuses").innerHTML = statusHtml(b.player, true);
-      document.querySelector("#enemyStatuses").innerHTML = statusHtml(b.enemy, false);
-      document.querySelector("#enemyName").textContent = b.enemyInfo.name;
-      document.querySelector("#enemyPortrait").textContent = b.enemyInfo.name;
-      document.querySelector("#enemyIntent").textContent = `下一击：${b.enemyInfo.damage} 伤害`;
-      document.querySelector("#enemyTimerFill").style.width = `${Math.min(100, b.enemyTimer / b.enemyInfo.interval * 100)}%`;
-      document.querySelector("#pendingCount").textContent = `${b.pending.length}/${state.slots}`;
-      document.querySelector("#pendingCards").innerHTML = b.pending.length
-        ? b.pending.map(id => `<span class="pending-chip">${cardById(id).name}</span>`).join("")
-        : `<span class="empty">等待抽牌策略打出卡牌</span>`;
-      document.querySelector("#chainSlots").style.display = "block";
-      document.querySelector("#chainSlots").innerHTML = b.chains.length ? b.chains.map(chain => `
+
+    function renderActorChainsV2(actor, active) {
+      return actor.chains.length ? actor.chains.map(chain => `
         <section class="weapon-chain">
-          <div class="weapon-head"><span>武器 ${chain.number} · 循环牌链</span><span>锻造 ${chain.forge}</span></div>
-          <div class="slots" style="--slot-count:${state.slots}">
+          <div class="weapon-head">
+            <span>单手剑 ${chain.weapon.index} · 三格牌链</span>
+            <span>锻造 ${chain.forge}${chain.waitingWeapon ? " · 武器攻击中" : ""}</span>
+          </div>
+          <div class="slots" style="--slot-count:${WEAPON.slots}">
             ${chain.cards.map((id, index) => {
               const card = cardById(id);
-              return `<article class="battle-card ${index === chain.index && !b.ended ? "active" : ""}">
+              return `<article class="battle-card ${active && !chain.waitingWeapon && index === chain.cardIndex ? "active" : ""}">
                 <div><span class="rarity ${card.rarity}">${card.rarity}</span><div class="card-name">${card.name}</div></div>
                 <div class="card-effect">${card.effect}</div><div class="card-time">${card.time}s</div>
               </article>`;
@@ -1006,48 +1136,88 @@
           </div>
         </section>
       `).join("") : `<div class="empty">尚未封装牌链</div>`;
-      const drawDuration = b.drawDuration * (b.player.haste > 0 ? .5 : 1);
-      document.querySelector("#chainProgressFill").style.width = `${Math.min(100, b.drawTimer / drawDuration * 100)}%`;
-      document.querySelector("#drawProgress").textContent = `策略循环 · 待封装 ${b.pending.length}/${state.slots} · 已生成 ${b.chains.length} 条牌链`;
-      document.querySelector("#battleStateLabel").textContent = b.ended ? (b.enemy.hp <= 0 ? "战斗胜利" : "战斗失败") : b.chains.length ? "抽牌与牌链并行运行" : "正在执行抽牌策略";
-      document.querySelector("#battleLog").innerHTML = b.logs.map(item => `<p>${item}</p>`).join("");
     }
-    function battleLoop(now) {
+
+    function renderBattleV2() {
+      const battle = state.battle;
+      if (!battle) return;
+      const player = battle.player;
+      const enemy = battle.enemy;
+      document.querySelector("#battleTitle").textContent = `第 ${state.battleNumber} 场战斗`;
+      document.querySelector("#battleGold").textContent = `${state.exitGold}c`;
+      document.querySelector("#battleWins").textContent = state.wins;
+      document.querySelector("#battleLosses").textContent = `${state.losses}/3`;
+      document.querySelector("#battleStrategy").textContent = player.strategies.map(id => strategyById(id).name).join(" → ");
+      document.querySelector("#playerHpText").textContent = `${player.hp} / ${player.maxHp}`;
+      document.querySelector("#enemyHpText").textContent = `${enemy.hp} / ${enemy.maxHp}`;
+      document.querySelector("#playerHpFill").style.transform = `scaleX(${player.hp / player.maxHp})`;
+      document.querySelector("#enemyHpFill").style.transform = `scaleX(${enemy.hp / enemy.maxHp})`;
+      document.querySelector("#playerStatuses").innerHTML = actorStatusesV2(player);
+      document.querySelector("#enemyStatuses").innerHTML = actorStatusesV2(enemy);
+      document.querySelector("#enemyName").textContent = enemy.name;
+      document.querySelector("#enemyPortrait").textContent = "战士";
+      document.querySelector("#enemyIntent").textContent = `基础数据库 · 第 ${battle.databaseBuild.round} 轮模拟胜利 Build`;
+      document.querySelector("#enemyBuildText").innerHTML =
+        `${battle.databaseBuild.cards.length} 张牌<br>` +
+        `${battle.databaseBuild.weapons} 把单手剑<br>` +
+        `${battle.databaseBuild.strategies.map(id => strategyById(id).name).join(" → ")}`;
+
+      const playerWeapon = player.weapons.find(item => !item.used);
+      document.querySelector("#pendingCount").textContent = `${player.pending.length}/${playerWeapon ? WEAPON.slots : "无空武器"}`;
+      document.querySelector("#pendingCards").innerHTML = player.pending.length
+        ? player.pending.map(id => `<span class="pending-chip">${cardById(id).name}</span>`).join("")
+        : `<span class="empty">等待抽牌策略打出卡牌</span>`;
+      document.querySelector("#chainSlots").style.display = "block";
+      document.querySelector("#chainSlots").innerHTML = renderActorChainsV2(player, !battle.ended);
+      document.querySelector("#enemyChainSlots").innerHTML = renderActorChainsV2(enemy, !battle.ended);
+      document.querySelector("#chainProgressFill").style.width = `${Math.min(100, player.strategyTimer / player.strategyDuration * 100)}%`;
+      document.querySelector("#drawProgress").textContent =
+        `策略槽 ${player.strategyIndex + 1}/6 · 待封装 ${player.pending.length} · 已生成 ${player.chains.length} 条牌链`;
+      document.querySelector("#enemyDrawProgress").textContent =
+        `策略槽 ${enemy.strategyIndex + 1}/6 · 待封装 ${enemy.pending.length} · 已生成 ${enemy.chains.length} 条牌链`;
+      document.querySelector("#battleStateLabel").textContent = battle.ended
+        ? enemy.hp <= 0 ? "战斗胜利" : "战斗失败"
+        : "双方 Build 自动战斗中";
+      document.querySelector("#battleLog").innerHTML = battle.logs.map(item => `<p>${item}</p>`).join("");
+    }
+
+    function battleLoopV2(now) {
       const dt = Math.min(.05, (now - state.lastTime) / 1000) * state.speed;
       state.lastTime = now;
-      updateBattle(dt);
-      renderBattle();
-      if (state.battle && !state.battle.ended) state.raf = requestAnimationFrame(battleLoop);
+      updateBattleV2(dt);
+      renderBattleV2();
+      if (state.battle && !state.battle.ended) state.raf = requestAnimationFrame(battleLoopV2);
     }
 
     document.querySelector("#startBtn").addEventListener("click", () => showScreen("character"));
-    document.querySelector("#confirmCharacterBtn").addEventListener("click", openShop);
-    document.querySelector("#offerGrid").addEventListener("click", event => {
-      const button = event.target.closest("[data-buy]");
-      if (button) buyOffer(button.dataset.buy);
+    document.querySelector("#confirmCharacterBtn").addEventListener("click", openShopV2);
+    document.querySelector("#cardOfferGrid").addEventListener("click", event => {
+      const button = event.target.closest("[data-buy-card]");
+      if (button) buyCardV2(button.dataset.buyCard);
     });
-    document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => {
-      state.filter = tab.dataset.filter;
-      document.querySelectorAll(".tab").forEach(item => item.classList.toggle("active", item === tab));
-      renderOffers();
-    }));
-    document.querySelector("#refreshBtn").addEventListener("click", () => {
-      if (state.gold < 2) return;
-      state.gold -= 2;
-      generateOffers();
-      renderShop();
-      toast("商店已刷新");
+    document.querySelector("#strategyOfferGrid").addEventListener("click", event => {
+      const button = event.target.closest("[data-buy-strategy]");
+      if (button) buyStrategyV2(button.dataset.buyStrategy);
+    });
+    document.querySelector("#weaponOfferGrid").addEventListener("click", event => {
+      const button = event.target.closest("[data-buy-weapon]");
+      if (button) buyWeaponV2();
+    });
+    document.querySelector("#strategyEditor").addEventListener("change", event => {
+      const select = event.target.closest("[data-strategy-slot]");
+      if (!select) return;
+      state.strategySlots[Number(select.dataset.strategySlot)] = select.value;
+      renderShopV2();
     });
     document.querySelector("#leaveShopBtn").addEventListener("click", () => {
-      if (state.deck.length < state.slots) return;
-      state.exitGold = state.gold;
-      createBattle();
+      if (state.weapons < 1 || state.deck.length < WEAPON.slots) return;
+      createBattleV2();
     });
     document.querySelectorAll("[data-speed]").forEach(button => button.addEventListener("click", () => {
       state.speed = Number(button.dataset.speed);
       document.querySelectorAll("[data-speed]").forEach(item => item.classList.toggle("active", item === button));
     }));
-    document.querySelector("#continueBtn").addEventListener("click", continueAfterBattle);
+    document.querySelector("#continueBtn").addEventListener("click", continueAfterBattleV2);
     document.querySelector("#restartBtn").addEventListener("click", () => {
       resetRun();
       showScreen("start");
