@@ -368,7 +368,15 @@
       backdrop-filter: blur(5px);
     }
     .overlay.open { display: grid; }
-    .modal { width: min(520px, 100%); padding: 26px; border-radius: 8px; background: #fff; box-shadow: 0 26px 90px rgba(0,0,0,.3); }
+    .modal {
+      width: min(820px, 100%);
+      max-height: calc(100vh - 40px);
+      overflow: auto;
+      padding: 26px;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 26px 90px rgba(0,0,0,.3);
+    }
     .modal-mark { color: var(--green); font-size: 13px; font-weight: 1000; }
     .modal h2 { margin: 8px 0 12px; font-size: 34px; letter-spacing: 0; }
     .modal p { margin: 0; color: var(--muted); line-height: 1.7; }
@@ -376,6 +384,21 @@
     .reward-row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; font-size: 14px; }
     .reward-row + .reward-row { border-top: 1px solid #edf0ed; }
     .reward-row strong { color: var(--gold); }
+    .result-log-section { margin: 18px 0; }
+    .result-log-section h3 { margin: 0 0 8px; font-size: 15px; }
+    .result-battle-log {
+      max-height: 260px;
+      overflow: auto;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #f6f7f5;
+      font-size: 12px;
+      line-height: 1.65;
+    }
+    .result-battle-log p { margin: 0 0 6px; color: var(--ink); }
+    .result-battle-log p:last-child { margin-bottom: 0; }
+    .result-battle-log b { color: var(--green-dark); }
     .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
     .end-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #27342f; color: #fff; }
     .end-panel { width: min(680px, 100%); text-align: center; }
@@ -422,6 +445,9 @@
       .shop-actions { display: grid; grid-template-columns: 1fr 1fr; }
       .shop-actions .interest-preview { grid-column: 1 / -1; }
       .shop-actions button { width: 100%; padding: 0 10px; }
+      .overlay { padding: 10px; }
+      .modal { max-height: calc(100vh - 20px); padding: 18px; }
+      .result-battle-log { max-height: 230px; }
       .character-card:first-child { grid-column: auto; }
       .character-card { min-height: 330px; }
       .side-panel { display: block; }
@@ -665,6 +691,10 @@
         <div class="reward-row"><span>离店金币利息</span><strong id="interestReward">+0c</strong></div>
         <div class="reward-row"><span>结算后金币</span><strong id="totalGold">0c</strong></div>
       </div>
+      <section class="result-log-section">
+        <h3>本场战斗日志</h3>
+        <div id="resultBattleLog" class="result-battle-log"></div>
+      </section>
       <div class="modal-actions"><button id="continueBtn" class="primary">进入下一商店</button></div>
     </div>
   </div>
@@ -1400,6 +1430,9 @@
       document.querySelector("#baseReward").textContent = `+${base}c`;
       document.querySelector("#interestReward").textContent = `+${interest}c`;
       document.querySelector("#totalGold").textContent = `${state.gold}c`;
+      document.querySelector("#resultBattleLog").innerHTML = battle.logs.length
+        ? battle.logs.map(item => `<p>${item}</p>`).join("")
+        : `<p class="empty">本场暂无战斗日志。</p>`;
       document.querySelector("#continueBtn").textContent = gameOver ? "查看本局成绩" : "进入下一商店";
       document.querySelector("#resultOverlay").classList.add("open");
       renderBattleV2();
