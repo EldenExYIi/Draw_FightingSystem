@@ -1,0 +1,1058 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Draw Level 001 MVP</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #eef1ed;
+      --paper: #fff;
+      --paper-2: #f7f8f5;
+      --ink: #19221f;
+      --muted: #65716c;
+      --line: #d5dcd7;
+      --green: #287f68;
+      --green-dark: #1f6655;
+      --green-soft: #e6f3ed;
+      --red: #c74750;
+      --red-soft: #fbecee;
+      --gold: #c78b22;
+      --gold-soft: #fff5dc;
+      --blue: #3675a7;
+      --blue-soft: #eaf3fa;
+      --purple: #7657a5;
+      --purple-soft: #f1ecf8;
+      --shadow: 0 14px 38px rgba(31, 48, 41, .1);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      min-height: 100vh;
+      overflow-x: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+    button { font: inherit; }
+    button:focus-visible, [tabindex]:focus-visible { outline: 3px solid rgba(40,127,104,.28); outline-offset: 2px; }
+    .app { min-height: 100vh; }
+    .screen { display: none; min-height: 100vh; }
+    .screen.active { display: block; }
+    .shell { width: min(1180px, calc(100vw - 32px)); margin: 0 auto; padding: 28px 0 46px; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 8px clamp(12px, 2vw, 24px);
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,.94);
+      backdrop-filter: blur(10px);
+    }
+    .brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+    .brand strong { font-size: 20px; white-space: nowrap; }
+    .brand span { color: var(--muted); font-size: 13px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .run-stats { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .stat {
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .stat b { color: var(--ink); font-size: 15px; }
+    .stat.gold { background: var(--gold-soft); border-color: #e9ce92; color: #87601b; }
+    .stat.loss { background: var(--red-soft); border-color: #efbdc1; color: #9f353d; }
+    .hero-screen {
+      position: relative;
+      min-height: 100vh;
+      display: grid;
+      align-items: center;
+      overflow: hidden;
+      background: #273d35;
+      color: #fff;
+    }
+    .hero-screen::before,
+    .hero-screen::after {
+      content: "";
+      position: absolute;
+      width: min(31vw, 430px);
+      aspect-ratio: 560 / 910;
+      right: 8vw;
+      top: 50%;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 8px;
+      background: url("../../FightingSystem/Draw_Fight_004/Texture/卡面.png") center / cover no-repeat;
+      box-shadow: 0 28px 70px rgba(0,0,0,.34);
+      transform: translateY(-54%) rotate(7deg);
+      opacity: .9;
+    }
+    .hero-screen::after {
+      right: 25vw;
+      background-image: url("../../FightingSystem/Draw_Fight_004/Texture/卡背.png");
+      transform: translateY(-43%) rotate(-10deg);
+      opacity: .48;
+    }
+    .hero-inner { position: relative; z-index: 1; width: min(1120px, calc(100vw - 32px)); margin: 0 auto; padding: 54px 0; }
+    .hero-mark { font-size: 14px; font-weight: 900; letter-spacing: 0; opacity: .86; }
+    .hero-title { margin: 14px 0 16px; max-width: 760px; font-size: clamp(48px, 9vw, 104px); line-height: .94; letter-spacing: 0; }
+    .hero-copy { max-width: 580px; margin: 0 0 32px; font-size: clamp(16px, 2vw, 20px); line-height: 1.7; color: rgba(255,255,255,.88); }
+    .primary, .secondary, .danger, .ghost {
+      min-height: 44px;
+      border-radius: 7px;
+      padding: 0 18px;
+      border: 1px solid transparent;
+      font-weight: 900;
+      cursor: pointer;
+      transition: transform .14s ease, filter .14s ease, background .14s ease;
+    }
+    .primary { background: var(--green); color: #fff; border-color: var(--green); }
+    .secondary { background: #fff; color: var(--ink); border-color: #cbd5cf; }
+    .danger { background: var(--red); color: #fff; border-color: var(--red); }
+    .ghost { background: transparent; color: var(--muted); border-color: var(--line); }
+    .primary:hover, .secondary:hover, .danger:hover, .ghost:hover { transform: translateY(-1px); filter: brightness(.98); }
+    button:disabled { cursor: not-allowed; opacity: .45; transform: none !important; }
+    .section-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; margin-bottom: 22px; }
+    .section-head h1 { margin: 0 0 8px; font-size: clamp(30px, 5vw, 48px); letter-spacing: 0; }
+    .section-head p { margin: 0; color: var(--muted); line-height: 1.65; }
+    .character-grid { display: grid; grid-template-columns: minmax(280px, 1.25fr) repeat(2, minmax(220px, .75fr)); gap: 16px; }
+    .character-card {
+      min-height: 410px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+    .character-card.selected { border: 2px solid var(--green); }
+    .character-card.locked { box-shadow: none; background: rgba(255,255,255,.55); color: var(--muted); }
+    .portrait {
+      height: 190px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #33483f, #759486);
+      color: #fff;
+      text-align: center;
+      font-size: 54px;
+      font-weight: 1000;
+    }
+    .portrait small { display: block; margin-top: 8px; font-size: 13px; opacity: .8; }
+    .locked .portrait { background: #e1e6e2; color: #87928c; }
+    .character-card h2 { margin: 0 0 8px; font-size: 25px; letter-spacing: 0; }
+    .character-card p { margin: 0; color: var(--muted); line-height: 1.65; font-size: 14px; }
+    .trait-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 15px; }
+    .trait { padding: 5px 8px; border-radius: 5px; background: var(--green-soft); color: var(--green-dark); font-size: 12px; font-weight: 900; }
+    .shop-layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 18px; }
+    .shop-main { min-width: 0; }
+    .shop-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .tabs { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 7px; background: #e7ebe8; }
+    .tab { min-height: 34px; border: 0; border-radius: 5px; padding: 0 12px; background: transparent; color: var(--muted); font-weight: 900; cursor: pointer; }
+    .tab.active { background: #fff; color: var(--ink); box-shadow: 0 2px 8px rgba(26,42,35,.1); }
+    .offer-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .offer {
+      min-height: 250px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      box-shadow: 0 8px 24px rgba(31,48,41,.07);
+    }
+    .offer.sold { background: #f0f2ef; box-shadow: none; }
+    .offer-top { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+    .rarity { padding: 4px 7px; border-radius: 4px; background: #eef1ef; color: var(--muted); font-size: 11px; font-weight: 900; }
+    .rarity.稀有 { background: var(--blue-soft); color: var(--blue); }
+    .rarity.史诗 { background: var(--purple-soft); color: var(--purple); }
+    .rarity.传说 { background: var(--gold-soft); color: #9b6915; }
+    .price { color: var(--gold); font-weight: 1000; white-space: nowrap; }
+    .offer h3 { margin: 14px 0 7px; font-size: 20px; letter-spacing: 0; }
+    .offer p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.58; }
+    .offer .meta { margin-top: 10px; color: var(--green-dark); font-size: 12px; font-weight: 900; }
+    .offer button { width: 100%; min-height: 40px; }
+    .side-panel {
+      align-self: start;
+      position: sticky;
+      top: 76px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .side-section { padding: 16px; border-bottom: 1px solid var(--line); }
+    .side-section:last-child { border-bottom: 0; }
+    .side-section h3 { margin: 0 0 10px; font-size: 15px; }
+    .deck-list { display: grid; gap: 6px; max-height: 240px; overflow: auto; }
+    .deck-item { display: flex; justify-content: space-between; gap: 8px; padding: 7px 8px; border-radius: 5px; background: var(--paper-2); font-size: 12px; }
+    .empty { color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .interest-preview { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; }
+    .interest-preview strong { color: var(--gold); }
+    .shop-actions { display: grid; gap: 8px; }
+    .battle-wrap { min-height: calc(100vh - 58px); padding: 16px; }
+    .battle-grid {
+      width: min(1240px, 100%);
+      min-height: calc(100vh - 90px);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(210px, .8fr) minmax(380px, 1.55fr) minmax(210px, .8fr);
+      gap: 14px;
+    }
+    .combatant, .battle-center {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+    .combatant { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+    .combat-portrait {
+      height: 150px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      background: #43594f;
+      color: #fff;
+      font-size: 42px;
+      font-weight: 1000;
+      text-align: center;
+    }
+    .enemy-side .combat-portrait { background: #815159; }
+    .unit-name { margin: 0; font-size: 22px; }
+    .hp-label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 900; }
+    .bar { height: 14px; margin-top: 7px; border: 1px solid #bcc8c1; border-radius: 4px; background: #e6ebe7; overflow: hidden; }
+    .bar > div { height: 100%; width: 100%; transform-origin: left; transition: transform .18s ease; background: linear-gradient(90deg, #2ca66f, #8bc752); }
+    .enemy-side .bar > div { background: linear-gradient(90deg, #d64e58, #e18a64); }
+    .status-list { display: flex; flex-wrap: wrap; gap: 6px; min-height: 31px; }
+    .status-pill { padding: 5px 7px; border-radius: 5px; background: var(--blue-soft); color: #2d668f; font-size: 12px; font-weight: 900; }
+    .enemy-timer { margin-top: auto; padding: 12px; border-radius: 6px; background: var(--red-soft); }
+    .enemy-timer strong { display: block; margin-bottom: 7px; }
+    .timer-track { height: 7px; border-radius: 4px; background: #efd5d7; overflow: hidden; }
+    .timer-fill { height: 100%; background: var(--red); width: 0; }
+    .battle-center { display: grid; grid-template-rows: auto auto minmax(160px, 1fr) auto; overflow: hidden; }
+    .battle-heading { padding: 16px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .battle-heading h2 { margin: 0; font-size: 20px; }
+    .speed-control { display: flex; gap: 4px; }
+    .speed-control button { width: 38px; height: 32px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--muted); font-size: 12px; font-weight: 900; cursor: pointer; }
+    .speed-control button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .strategy-line { padding: 11px 18px; background: var(--paper-2); border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+    .strategy-line b { color: var(--green-dark); }
+    .chain-area { padding: 18px; min-height: 0; overflow: auto; }
+    .chain-title { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px; }
+    .chain-title h3 { margin: 0; font-size: 15px; }
+    .draw-progress { color: var(--muted); font-size: 12px; font-weight: 800; }
+    .slots { display: grid; grid-template-columns: repeat(var(--slot-count, 3), minmax(0, 1fr)); gap: 8px; }
+    .pending-zone {
+      margin-bottom: 14px;
+      padding: 12px;
+      border: 1px dashed #b7c5bd;
+      border-radius: 7px;
+      background: var(--paper-2);
+    }
+    .pending-head, .weapon-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .pending-cards { display: flex; gap: 6px; flex-wrap: wrap; min-height: 30px; }
+    .pending-chip {
+      padding: 6px 8px;
+      border: 1px solid #c9d4cd;
+      border-radius: 5px;
+      background: #fff;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .weapon-chain { padding: 12px; border: 1px solid var(--line); border-radius: 7px; background: #fbfcfa; }
+    .weapon-chain + .weapon-chain { margin-top: 10px; }
+    .battle-card {
+      min-height: 172px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid #cbd5cf;
+      border-radius: 7px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .battle-card.active { border: 2px solid var(--gold); box-shadow: 0 0 0 4px rgba(199,139,34,.15); }
+    .battle-card.empty-slot { display: grid; place-items: center; border-style: dashed; background: var(--paper-2); color: #99a29d; font-size: 13px; }
+    .card-name { font-size: 16px; font-weight: 1000; }
+    .card-effect { color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .card-time { color: var(--green-dark); font-size: 11px; font-weight: 900; }
+    .chain-meter { height: 8px; margin-top: 12px; border-radius: 5px; background: #e5eae6; overflow: hidden; }
+    .chain-meter > div { height: 100%; width: 0; background: var(--gold); transition: width .08s linear; }
+    .battle-log { min-height: 150px; max-height: 220px; overflow: auto; padding: 14px 18px; border-top: 1px solid var(--line); background: #f6f7f5; font-size: 12px; line-height: 1.65; }
+    .battle-log p { margin: 0 0 5px; }
+    .battle-log b { color: var(--green-dark); }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: none;
+      place-items: center;
+      padding: 20px;
+      background: rgba(18,27,23,.64);
+      backdrop-filter: blur(5px);
+    }
+    .overlay.open { display: grid; }
+    .modal { width: min(520px, 100%); padding: 26px; border-radius: 8px; background: #fff; box-shadow: 0 26px 90px rgba(0,0,0,.3); }
+    .modal-mark { color: var(--green); font-size: 13px; font-weight: 1000; }
+    .modal h2 { margin: 8px 0 12px; font-size: 34px; letter-spacing: 0; }
+    .modal p { margin: 0; color: var(--muted); line-height: 1.7; }
+    .reward-breakdown { margin: 20px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .reward-row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; font-size: 14px; }
+    .reward-row + .reward-row { border-top: 1px solid #edf0ed; }
+    .reward-row strong { color: var(--gold); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .end-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #27342f; color: #fff; }
+    .end-panel { width: min(680px, 100%); text-align: center; }
+    .end-label { color: #b8c9c1; font-weight: 900; }
+    .end-wins { margin: 10px 0 0; font-size: clamp(84px, 20vw, 180px); line-height: .9; color: #f2c56d; font-weight: 1000; }
+    .end-panel h1 { margin: 8px 0 14px; font-size: clamp(32px, 6vw, 56px); }
+    .end-panel p { margin: 0 auto 28px; max-width: 520px; color: #c8d3ce; line-height: 1.7; }
+    .end-actions { display: flex; justify-content: center; gap: 9px; flex-wrap: wrap; }
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      z-index: 100;
+      transform: translate(-50%, 20px);
+      opacity: 0;
+      pointer-events: none;
+      padding: 11px 15px;
+      border-radius: 6px;
+      background: #202b26;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 800;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    @media (max-width: 980px) {
+      .character-grid { grid-template-columns: 1fr 1fr; }
+      .character-card:first-child { grid-column: 1 / -1; }
+      .shop-layout { grid-template-columns: 1fr; }
+      .side-panel { position: static; display: grid; grid-template-columns: repeat(3, 1fr); }
+      .side-section { border-bottom: 0; border-right: 1px solid var(--line); }
+      .side-section:last-child { border-right: 0; }
+      .battle-grid { grid-template-columns: 190px minmax(360px, 1fr) 190px; }
+    }
+    @media (max-width: 760px) {
+      .shell { width: min(100vw - 20px, 1180px); padding-top: 20px; }
+      .topbar { align-items: flex-start; }
+      .brand span { display: none; }
+      .stat { min-height: 30px; padding: 0 7px; }
+      .character-grid, .offer-grid { grid-template-columns: 1fr; }
+      .character-card:first-child { grid-column: auto; }
+      .character-card { min-height: 330px; }
+      .side-panel { display: block; }
+      .side-section { border-right: 0; border-bottom: 1px solid var(--line); }
+      .battle-wrap { padding: 8px; }
+      .battle-grid { display: flex; flex-direction: column; }
+      .combatant { display: grid; grid-template-columns: 110px 1fr; min-height: 170px; }
+      .combat-portrait { height: 120px; font-size: 30px; }
+      .enemy-timer { grid-column: 1 / -1; }
+      .player-side { order: 1; }
+      .battle-center { order: 2; min-height: 560px; }
+      .enemy-side { order: 3; }
+      .slots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .battle-card { min-height: 150px; }
+      .hero-screen::before {
+        width: 235px;
+        right: -90px;
+        top: 27%;
+        opacity: .42;
+      }
+      .hero-screen::after {
+        width: 190px;
+        right: 70px;
+        top: 15%;
+        opacity: .18;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section id="startScreen" class="screen active">
+      <div class="hero-screen">
+        <div class="hero-inner">
+          <div class="hero-mark">DRAW · LEVEL 001</div>
+          <h1 class="hero-title">商店战斗循环</h1>
+          <p class="hero-copy">从空卡组和 20c 开始。购买卡牌、调整抽牌策略、构筑武器牌链，在三次失败前尽可能赢下更多战斗。</p>
+          <button id="startBtn" class="primary">开始游戏</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="characterScreen" class="screen">
+      <div class="shell">
+        <div class="section-head">
+          <div>
+            <h1>选择角色</h1>
+            <p>角色决定生命值、专属关键词与牌链构筑方式。</p>
+          </div>
+          <button id="confirmCharacterBtn" class="primary">选择战士</button>
+        </div>
+        <div class="character-grid">
+          <article class="character-card selected">
+            <div>
+              <div class="portrait">战<small>WARRIOR</small></div>
+              <h2>战士</h2>
+              <p>将卡牌封装进武器槽位并循环执行。可利用蓄力、力量、格挡与锻造形成不同战斗路线。</p>
+              <div class="trait-row">
+                <span class="trait">100 生命</span>
+                <span class="trait">3 武器槽</span>
+                <span class="trait">锻造专精</span>
+              </div>
+            </div>
+            <strong>已选择</strong>
+          </article>
+          <article class="character-card locked">
+            <div>
+              <div class="portrait">?</div>
+              <h2>待开发角色</h2>
+              <p>后续角色将拥有不同的封装规则与专属卡牌。</p>
+            </div>
+            <span>尚未开放</span>
+          </article>
+          <article class="character-card locked">
+            <div>
+              <div class="portrait">?</div>
+              <h2>待开发角色</h2>
+              <p>该位置用于验证未来的角色选择与关卡继承。</p>
+            </div>
+            <span>尚未开放</span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="shopScreen" class="screen">
+      <header class="topbar">
+        <div class="brand"><strong>开局商店</strong><span id="shopSubtitle">为第 1 场战斗构筑</span></div>
+        <div class="run-stats">
+          <span class="stat gold">金币 <b id="shopGold">20c</b></span>
+          <span class="stat">胜场 <b id="shopWins">0</b></span>
+          <span class="stat loss">失败 <b id="shopLosses">0/3</b></span>
+        </div>
+      </header>
+      <div class="shell">
+        <div class="section-head">
+          <div>
+            <h1 id="shopHeading">开局商店</h1>
+            <p>购买卡牌、抽牌策略和牌链道具。至少准备足够填满一件武器的卡牌才能离店。</p>
+          </div>
+        </div>
+        <div class="shop-layout">
+          <main class="shop-main">
+            <div class="shop-toolbar">
+              <div class="tabs" role="tablist">
+                <button class="tab active" data-filter="all">全部</button>
+                <button class="tab" data-filter="card">卡牌</button>
+                <button class="tab" data-filter="strategy">策略</button>
+                <button class="tab" data-filter="chain">牌链</button>
+              </div>
+              <button id="refreshBtn" class="ghost" title="花费 2c 刷新商店">刷新 2c</button>
+            </div>
+            <div id="offerGrid" class="offer-grid"></div>
+          </main>
+          <aside class="side-panel">
+            <section class="side-section">
+              <h3>当前卡组 <span id="deckCount">0</span></h3>
+              <div id="deckList" class="deck-list"></div>
+            </section>
+            <section class="side-section">
+              <h3>构筑配置</h3>
+              <div id="buildSummary" class="empty"></div>
+            </section>
+            <section class="side-section">
+              <div class="shop-actions">
+                <div class="interest-preview"><span>预计利息</span><strong id="interestPreview">+4c</strong></div>
+                <button id="leaveShopBtn" class="primary">进入战斗</button>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section id="battleScreen" class="screen">
+      <header class="topbar">
+        <div class="brand"><strong id="battleTitle">第 1 场战斗</strong><span>武器牌链自动循环</span></div>
+        <div class="run-stats">
+          <span class="stat gold">离店金币 <b id="battleGold">0c</b></span>
+          <span class="stat">胜场 <b id="battleWins">0</b></span>
+          <span class="stat loss">失败 <b id="battleLosses">0/3</b></span>
+        </div>
+      </header>
+      <div class="battle-wrap">
+        <div class="battle-grid">
+          <aside class="combatant player-side">
+            <div class="combat-portrait">战士</div>
+            <div>
+              <h2 class="unit-name">玩家</h2>
+              <div class="hp-label"><span>生命</span><span id="playerHpText">100 / 100</span></div>
+              <div class="bar"><div id="playerHpFill"></div></div>
+            </div>
+            <div id="playerStatuses" class="status-list"></div>
+          </aside>
+          <main class="battle-center">
+            <div class="battle-heading">
+              <h2 id="battleStateLabel">正在构筑牌链</h2>
+              <div class="speed-control" aria-label="战斗速度">
+                <button data-speed="1" class="active">1x</button>
+                <button data-speed="2">2x</button>
+                <button data-speed="4">4x</button>
+              </div>
+            </div>
+            <div class="strategy-line">V1 · 抽牌策略：<b id="battleStrategy">标准随机</b> · 循环执行抽牌/出牌/弃牌，满足武器槽位规则后自动封装</div>
+            <div class="chain-area">
+              <div class="chain-title">
+                <h3>抽牌与封装</h3>
+                <span id="drawProgress" class="draw-progress">策略准备中</span>
+              </div>
+              <div class="pending-zone">
+                <div class="pending-head"><span>待封装区</span><span id="pendingCount">0/3</span></div>
+                <div id="pendingCards" class="pending-cards"></div>
+              </div>
+              <div id="chainSlots" class="slots"></div>
+              <div class="chain-meter"><div id="chainProgressFill"></div></div>
+            </div>
+            <div id="battleLog" class="battle-log" aria-live="polite"></div>
+          </main>
+          <aside class="combatant enemy-side">
+            <div id="enemyPortrait" class="combat-portrait">敌人</div>
+            <div>
+              <h2 id="enemyName" class="unit-name">训练木偶</h2>
+              <div class="hp-label"><span>生命</span><span id="enemyHpText">60 / 60</span></div>
+              <div class="bar"><div id="enemyHpFill"></div></div>
+            </div>
+            <div id="enemyStatuses" class="status-list"></div>
+            <div class="enemy-timer">
+              <strong id="enemyIntent">下一击：6 伤害</strong>
+              <div class="timer-track"><div id="enemyTimerFill" class="timer-fill"></div></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section id="endScreen" class="screen">
+      <div class="end-screen">
+        <div class="end-panel">
+          <div class="end-label">本局最终胜场</div>
+          <div id="finalWins" class="end-wins">0</div>
+          <h1>远征结束</h1>
+          <p id="endSummary">累计三次战斗失败。你的商店构筑与武器牌链记录已完成本轮验证。</p>
+          <div class="end-actions">
+            <button id="restartBtn" class="primary">重新开始</button>
+            <button id="backToLevelsBtn" class="secondary">返回版本库</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="resultOverlay" class="overlay" role="dialog" aria-modal="true">
+    <div class="modal">
+      <div id="resultMark" class="modal-mark">战斗结算</div>
+      <h2 id="resultTitle">战斗胜利</h2>
+      <p id="resultText"></p>
+      <div class="reward-breakdown">
+        <div class="reward-row"><span>战斗奖励</span><strong id="baseReward">+15c</strong></div>
+        <div class="reward-row"><span>离店金币利息</span><strong id="interestReward">+0c</strong></div>
+        <div class="reward-row"><span>结算后金币</span><strong id="totalGold">0c</strong></div>
+      </div>
+      <div class="modal-actions"><button id="continueBtn" class="primary">进入下一商店</button></div>
+    </div>
+  </div>
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const CARDS = [
+      { id:"wait", name:"等待", time:3, rarity:"普通", price:1, effect:"无效果", op:"wait", amount:0, tags:["neutral"] },
+      { id:"stab", name:"刺击", time:.5, rarity:"普通", price:3, effect:"造成3点伤害", op:"damage", amount:3, tags:["attack"] },
+      { id:"heavy", name:"重击", time:2, rarity:"普通", price:5, effect:"造成25点伤害", op:"damage", amount:25, tags:["attack","heavy"] },
+      { id:"double", name:"双击", time:1, rarity:"传说", price:12, effect:"下一次攻击触发两次", op:"double", amount:1, tags:["utility"] },
+      { id:"prepare", name:"准备", time:1, rarity:"普通", price:3, effect:"获得一层蓄力", op:"charge", amount:1, tags:["buff"] },
+      { id:"strength", name:"强壮", time:1, rarity:"普通", price:3, effect:"获得一层力量", op:"strength", amount:1, tags:["buff"] },
+      { id:"potential", name:"激发潜力", time:2, rarity:"稀有", price:7, effect:"消耗力量，获得等量蓄力", op:"potential", amount:1, tags:["buff"] },
+      { id:"power", name:"强力击", time:2, rarity:"稀有", price:7, effect:"造成10点伤害，力量加成翻倍", op:"power", amount:10, tags:["attack","heavy"] },
+      { id:"borrow", name:"借力打击", time:1, rarity:"史诗", price:9, effect:"造成5点伤害，返还一半本次消耗的蓄力", op:"borrow", amount:5, tags:["attack"] },
+      { id:"hurry", name:"着急", time:1, rarity:"稀有", price:6, effect:"获得一层迅捷", op:"haste", amount:1, tags:["buff"] },
+      { id:"defend", name:"防御", time:1, rarity:"普通", price:3, effect:"获得5点格挡", op:"block", amount:5, tags:["defense"] },
+      { id:"counter", name:"防守反击", time:2, rarity:"稀有", price:7, effect:"消耗一半格挡，造成其两倍伤害", op:"counter", amount:1, tags:["attack","defense"] },
+      { id:"stance", name:"守势", time:1, rarity:"稀有", price:7, effect:"下一次攻击造成伤害时获得等量格挡", op:"stance", amount:1, tags:["defense","buff"] },
+      { id:"polish", name:"打磨", time:.5, rarity:"普通", price:4, effect:"武器获得一层锻造", op:"forge", amount:1, tags:["buff"] },
+      { id:"bloodforge", name:"血锻法", time:1, rarity:"稀有", price:7, effect:"受到10点伤害，武器获得两层锻造", op:"bloodforge", amount:2, tags:["buff"] }
+    ];
+    const STRATEGIES = [
+      { id:"random", name:"标准随机", price:0, effect:"抽一张并打出，不弃牌。" },
+      { id:"attack", name:"进攻检索", price:6, effect:"抽三张，打出第一张攻击牌，弃置其余卡牌。" },
+      { id:"defense", name:"攻守判断", price:6, effect:"抽三张；高于半血打攻击牌，否则打防御牌，弃置其余。" }
+    ];
+    const CHAIN_ITEMS = [
+      { id:"slot", name:"扩容铆钉", rarity:"稀有", price:8, effect:"战士的武器封装阈值永久 +1，最多 5 槽。" },
+      { id:"tempo", name:"精密齿轮", rarity:"稀有", price:7, effect:"所有已封装牌链的卡牌执行时间永久缩短 15%。" },
+      { id:"reinforce", name:"加固握柄", rarity:"普通", price:5, effect:"每场战斗开始时获得 8 点格挡。" }
+    ];
+    const ENEMIES = [
+      { name:"训练木偶", hp:52, damage:6, interval:3.4 },
+      { name:"荒野盗匪", hp:68, damage:8, interval:3.1 },
+      { name:"铁甲佣兵", hp:86, damage:10, interval:3.2 },
+      { name:"赤刃队长", hp:104, damage:13, interval:2.9 },
+      { name:"锻炉守卫", hp:126, damage:16, interval:2.8 }
+    ];
+
+    const screens = {
+      start: document.querySelector("#startScreen"),
+      character: document.querySelector("#characterScreen"),
+      shop: document.querySelector("#shopScreen"),
+      battle: document.querySelector("#battleScreen"),
+      end: document.querySelector("#endScreen")
+    };
+    const state = {
+      gold:20, wins:0, losses:0, battleNumber:1, deck:[],
+      strategy:"random", slots:3, tempo:1, reinforce:0,
+      offers:[], filter:"all", shopVisits:0, exitGold:0,
+      battle:null, speed:1, raf:0, lastTime:0
+    };
+
+    function showScreen(name) {
+      Object.entries(screens).forEach(([key, el]) => el.classList.toggle("active", key === name));
+      window.scrollTo(0, 0);
+    }
+    function resetRun() {
+      cancelAnimationFrame(state.raf);
+      Object.assign(state, {
+        gold:20, wins:0, losses:0, battleNumber:1, deck:[],
+        strategy:"random", slots:3, tempo:1, reinforce:0,
+        offers:[], filter:"all", shopVisits:0, exitGold:0,
+        battle:null, speed:1, raf:0, lastTime:0
+      });
+      document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.filter === "all"));
+      document.querySelector("#resultOverlay").classList.remove("open");
+    }
+    function toast(message) {
+      const el = document.querySelector("#toast");
+      el.textContent = message;
+      el.classList.add("show");
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => el.classList.remove("show"), 1700);
+    }
+    function shuffle(items) {
+      const out = [...items];
+      for (let i = out.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [out[i], out[j]] = [out[j], out[i]];
+      }
+      return out;
+    }
+    function cardById(id) { return CARDS.find(card => card.id === id); }
+    function strategyById(id) { return STRATEGIES.find(strategy => strategy.id === id); }
+    function interestFor(gold) { return Math.min(5, Math.floor(gold / 5)); }
+    function rarityPrice(rarity) { return ({ "普通":3, "稀有":6, "史诗":9, "传说":12 })[rarity] || 4; }
+
+    function generateOffers() {
+      const ownedCounts = state.deck.reduce((map, id) => (map[id] = (map[id] || 0) + 1, map), {});
+      const cheapCards = shuffle(CARDS.filter(card => card.price <= 3)).slice(0, 3);
+      const otherCards = shuffle(CARDS.filter(card => !cheapCards.includes(card))).slice(0, 3);
+      const cardPool = shuffle([...cheapCards, ...otherCards]).map(card => ({
+        uid:`card-${card.id}-${Math.random()}`, type:"card", ref:card.id, name:card.name,
+        rarity:card.rarity, price:card.price || rarityPrice(card.rarity), effect:card.effect,
+        meta:`${card.time}s · 已有 ${ownedCounts[card.id] || 0} 张`, sold:false
+      }));
+      const strategyPool = shuffle(STRATEGIES.filter(item => item.id !== "random" && item.id !== state.strategy)).slice(0, 1).map(item => ({
+        uid:`strategy-${item.id}-${Math.random()}`, type:"strategy", ref:item.id, name:item.name,
+        rarity:"稀有", price:item.price, effect:item.effect, meta:"购买后立即启用", sold:false
+      }));
+      const chainPool = shuffle(CHAIN_ITEMS.filter(item => item.id !== "slot" || state.slots < 5)).slice(0, 2).map(item => ({
+        uid:`chain-${item.id}-${Math.random()}`, type:"chain", ref:item.id, name:item.name,
+        rarity:item.rarity, price:item.price, effect:item.effect, meta:"永久生效", sold:false
+      }));
+      state.offers = shuffle([...cardPool, ...strategyPool, ...chainPool]).slice(0, 8);
+    }
+    function openShop() {
+      cancelAnimationFrame(state.raf);
+      state.shopVisits += 1;
+      state.filter = "all";
+      generateOffers();
+      document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.filter === "all"));
+      renderShop();
+      showScreen("shop");
+    }
+    function renderShop() {
+      document.querySelector("#shopGold").textContent = `${state.gold}c`;
+      document.querySelector("#shopWins").textContent = state.wins;
+      document.querySelector("#shopLosses").textContent = `${state.losses}/3`;
+      document.querySelector("#shopSubtitle").textContent = `为第 ${state.battleNumber} 场战斗构筑`;
+      document.querySelector("#shopHeading").textContent = state.shopVisits === 1 ? "开局商店" : `第 ${state.shopVisits} 次商店`;
+      document.querySelector("#interestPreview").textContent = `+${interestFor(state.gold)}c`;
+      document.querySelector("#refreshBtn").disabled = state.gold < 2;
+      const deckCounts = state.deck.reduce((map, id) => (map[id] = (map[id] || 0) + 1, map), {});
+      document.querySelector("#deckCount").textContent = `(${state.deck.length})`;
+      document.querySelector("#deckList").innerHTML = state.deck.length
+        ? Object.entries(deckCounts).map(([id, count]) => `<div class="deck-item"><span>${cardById(id).name}</span><b>×${count}</b></div>`).join("")
+        : `<div class="empty">当前没有卡牌。至少购买一张卡牌才能进入战斗。</div>`;
+      document.querySelector("#buildSummary").innerHTML =
+        `策略：<b>${strategyById(state.strategy).name}</b><br>` +
+        `武器槽：<b>${state.slots}</b><br>` +
+        `执行速度：<b>${Math.round((1 - state.tempo) * 100)}% 加速</b><br>` +
+        `开场格挡：<b>${state.reinforce}</b>`;
+      const canSealWeapon = state.deck.length >= state.slots;
+      document.querySelector("#leaveShopBtn").disabled = !canSealWeapon;
+      document.querySelector("#leaveShopBtn").textContent = canSealWeapon ? "进入战斗" : `还需 ${state.slots - state.deck.length} 张卡牌`;
+      renderOffers();
+    }
+    function renderOffers() {
+      const offers = state.offers.filter(offer => state.filter === "all" || offer.type === state.filter);
+      document.querySelector("#offerGrid").innerHTML = offers.map(offer => `
+        <article class="offer ${offer.sold ? "sold" : ""}">
+          <div>
+            <div class="offer-top"><span class="rarity ${offer.rarity}">${offer.rarity}</span><span class="price">${offer.price}c</span></div>
+            <h3>${offer.name}</h3>
+            <p>${offer.effect}</p>
+            <div class="meta">${offer.meta}</div>
+          </div>
+          <button class="${offer.sold ? "ghost" : "secondary"}" data-buy="${offer.uid}" ${offer.sold || state.gold < offer.price ? "disabled" : ""}>${offer.sold ? "已购买" : "购买"}</button>
+        </article>
+      `).join("") || `<div class="empty">这一分类本次没有商品。</div>`;
+    }
+    function buyOffer(uid) {
+      const offer = state.offers.find(item => item.uid === uid);
+      if (!offer || offer.sold || state.gold < offer.price) return;
+      state.gold -= offer.price;
+      offer.sold = true;
+      if (offer.type === "card") state.deck.push(offer.ref);
+      if (offer.type === "strategy") state.strategy = offer.ref;
+      if (offer.type === "chain") {
+        if (offer.ref === "slot") state.slots = Math.min(5, state.slots + 1);
+        if (offer.ref === "tempo") state.tempo = Math.max(.55, state.tempo * .85);
+        if (offer.ref === "reinforce") state.reinforce += 8;
+      }
+      toast(`已购买「${offer.name}」`);
+      renderShop();
+    }
+
+    function createBattle() {
+      const tier = Math.min(ENEMIES.length - 1, Math.floor((state.battleNumber - 1) / 2));
+      const base = ENEMIES[tier];
+      const scale = 1 + Math.max(0, state.battleNumber - 1) * .09;
+      const enemyMaxHp = Math.round(base.hp * scale);
+      const battleDeck = shuffle(state.deck);
+      state.battle = {
+        player:{ hp:100, maxHp:100, block:state.reinforce, charge:0, strength:0, haste:0, double:0, stance:0 },
+        enemy:{ hp:enemyMaxHp, maxHp:enemyMaxHp, block:0 },
+        enemyInfo:{ name:base.name, damage:Math.round(base.damage * (1 + (state.battleNumber - 1) * .07)), interval:base.interval },
+        deck:battleDeck, discard:[], pending:[], chains:[], drawTimer:0, drawDuration:1.15,
+        enemyTimer:0, ended:false, logs:[]
+      };
+      state.speed = 1;
+      document.querySelectorAll("[data-speed]").forEach(btn => btn.classList.toggle("active", btn.dataset.speed === "1"));
+      logBattle(`第 ${state.battleNumber} 场战斗开始。正在使用「${strategyById(state.strategy).name}」构筑武器牌链。`);
+      if (state.reinforce) logBattle(`加固握柄提供 <b>${state.reinforce}</b> 点开场格挡。`);
+      renderBattle();
+      showScreen("battle");
+      state.lastTime = performance.now();
+      state.raf = requestAnimationFrame(battleLoop);
+    }
+    function drawOne() {
+      const battle = state.battle;
+      if (!battle.deck.length) {
+        battle.deck = shuffle(battle.discard);
+        battle.discard = [];
+      }
+      return battle.deck.shift();
+    }
+    function executeDrawStrategy() {
+      const battle = state.battle;
+      const count = state.strategy === "random" ? 1 : 3;
+      const drawn = [];
+      for (let i = 0; i < count; i += 1) {
+        const id = drawOne();
+        if (id) drawn.push(id);
+      }
+      if (!drawn.length) return;
+      let wantedTag = "";
+      if (state.strategy === "attack") wantedTag = "attack";
+      if (state.strategy === "defense") wantedTag = battle.player.hp > battle.player.maxHp / 2 ? "attack" : "defense";
+      let chosenIndex = wantedTag ? drawn.findIndex(id => cardById(id).tags.includes(wantedTag)) : 0;
+      if (chosenIndex < 0) chosenIndex = 0;
+      const [chosen] = drawn.splice(chosenIndex, 1);
+      battle.pending.push(chosen);
+      battle.discard.push(...drawn);
+      const drawnNames = [chosen, ...drawn].map(id => cardById(id).name).join("、");
+      const discarded = drawn.length ? `，弃置 ${drawn.map(id => cardById(id).name).join("、")}` : "";
+      logBattle(`「<b>${strategyById(state.strategy).name}</b>」抽到 ${drawnNames}，打出 ${cardById(chosen).name}${discarded}。`);
+      if (battle.pending.length >= state.slots) sealChain();
+    }
+    function sealChain() {
+      const battle = state.battle;
+      const cards = battle.pending.splice(0, state.slots);
+      const chain = {
+        cards, index:0, timer:0, duration:effectiveCardTime(cardById(cards[0])),
+        forge:0, number:battle.chains.length + 1
+      };
+      battle.chains.push(chain);
+      logBattle(`满足 ${state.slots} 槽武器封装策略，生成「<b>武器 ${chain.number}</b>」并开始循环。`);
+    }
+    function effectiveCardTime(card) {
+      const hasteMultiplier = state.battle.player.haste > 0 ? .5 : 1;
+      return Math.max(.18, card.time * state.tempo * hasteMultiplier);
+    }
+    function dealDamage(target, amount) {
+      const absorbed = Math.min(target.block || 0, amount);
+      target.block -= absorbed;
+      target.hp = Math.max(0, target.hp - (amount - absorbed));
+      return { dealt:amount - absorbed, absorbed };
+    }
+    function playerAttack(base, chain, strengthMultiplier = 1, returnCharge = false) {
+      const battle = state.battle;
+      const p = battle.player;
+      const chargeBefore = p.charge;
+      const chargeMultiplier = Math.pow(1.2, chargeBefore);
+      const forgeMultiplier = 1 + chain.forge * .08;
+      const amount = Math.max(0, Math.round((base + p.strength * strengthMultiplier) * chargeMultiplier * forgeMultiplier));
+      p.charge = 0;
+      const hits = p.double > 0 ? 2 : 1;
+      p.double = Math.max(0, p.double - 1);
+      let total = 0;
+      for (let i = 0; i < hits; i += 1) total += dealDamage(battle.enemy, amount).dealt;
+      if (returnCharge) p.charge += Math.floor(chargeBefore / 2);
+      if (p.stance > 0) {
+        p.block += total;
+        p.stance -= 1;
+        logBattle(`守势将本次伤害转化为 <b>${total}</b> 点格挡。`);
+      }
+      return total;
+    }
+    function executeCard(card, chain) {
+      const b = state.battle;
+      const p = b.player;
+      let message = "";
+      switch (card.op) {
+        case "wait": message = "等待结束，无事发生。"; break;
+        case "damage": message = `造成 <b>${playerAttack(card.amount, chain)}</b> 点伤害。`; break;
+        case "double": p.double += 1; message = "下一次攻击将触发两次。"; break;
+        case "charge": p.charge += card.amount; message = `获得 ${card.amount} 层蓄力。`; break;
+        case "strength": p.strength += card.amount; message = `获得 ${card.amount} 层力量。`; break;
+        case "potential": {
+          const amount = p.strength; p.strength = 0; p.charge += amount;
+          message = `消耗 ${amount} 层力量，转化为等量蓄力。`; break;
+        }
+        case "power": message = `造成 <b>${playerAttack(card.amount, chain, 2)}</b> 点强力伤害。`; break;
+        case "borrow": message = `造成 <b>${playerAttack(card.amount, chain, 1, true)}</b> 点借力伤害。`; break;
+        case "haste": p.haste += 1; message = "获得 1 层迅捷。"; break;
+        case "block": p.block += card.amount; message = `获得 ${card.amount} 点格挡。`; break;
+        case "counter": {
+          const spent = Math.floor(p.block / 2); p.block -= spent;
+          const dealt = dealDamage(b.enemy, spent * 2).dealt;
+          message = `消耗 ${spent} 点格挡，反击造成 <b>${dealt}</b> 点伤害。`; break;
+        }
+        case "stance": p.stance += 1; message = "进入守势，等待下一次攻击。"; break;
+        case "forge": chain.forge += card.amount; message = `武器 ${chain.number} 获得 ${card.amount} 层锻造。`; break;
+        case "bloodforge": {
+          const hit = dealDamage(p, 10); chain.forge += card.amount;
+          message = `自身受到 ${hit.dealt} 点伤害，武器 ${chain.number} 获得 ${card.amount} 层锻造。`; break;
+        }
+      }
+      logBattle(`「<b>${card.name}</b>」${message}`);
+    }
+    function enemyAttack() {
+      const b = state.battle;
+      const result = dealDamage(b.player, b.enemyInfo.damage);
+      logBattle(`${b.enemyInfo.name} 发动攻击：格挡吸收 ${result.absorbed}，受到 <b>${result.dealt}</b> 点伤害。`);
+    }
+    function updateBattle(dt) {
+      const b = state.battle;
+      if (!b || b.ended) return;
+      b.enemyTimer += dt;
+      if (b.enemyTimer >= b.enemyInfo.interval) {
+        b.enemyTimer -= b.enemyInfo.interval;
+        enemyAttack();
+      }
+      b.drawTimer += dt;
+      const drawDuration = b.drawDuration * (b.player.haste > 0 ? .5 : 1);
+      if (b.drawTimer >= drawDuration) {
+        b.drawTimer = 0;
+        if (b.player.haste > 0) b.player.haste -= 1;
+        executeDrawStrategy();
+      }
+      b.chains.forEach(chain => {
+        chain.timer += dt;
+        if (chain.timer >= chain.duration) {
+          chain.timer = 0;
+          executeCard(cardById(chain.cards[chain.index]), chain);
+          chain.index = (chain.index + 1) % chain.cards.length;
+          chain.duration = effectiveCardTime(cardById(chain.cards[chain.index]));
+        }
+      });
+      if (!b.deck.length && !b.discard.length && b.pending.length && b.pending.length < state.slots) {
+        // A partial final weapon stays pending; every physical card can only belong to one active chain.
+      }
+      if (b.enemy.hp <= 0) finishBattle(true);
+      else if (b.player.hp <= 0) finishBattle(false);
+    }
+    function finishBattle(won) {
+      const b = state.battle;
+      if (b.ended) return;
+      b.ended = true;
+      cancelAnimationFrame(state.raf);
+      const base = won ? 15 : 12;
+      const interest = interestFor(state.exitGold);
+      state.gold += base + interest;
+      if (won) state.wins += 1;
+      else state.losses += 1;
+      const gameOver = state.losses >= 3;
+      document.querySelector("#resultTitle").textContent = won ? "战斗胜利" : "战斗失败";
+      document.querySelector("#resultMark").textContent = gameOver ? "第三次失败" : "战斗结算";
+      document.querySelector("#resultText").textContent = won
+        ? "牌链完成了本场战斗。奖励与利息已经加入下一次商店资金。"
+        : gameOver ? "累计失败达到三次，本轮关卡将在结算后结束。" : "本次构筑未能取胜，但仍会获得失败奖励和利息。";
+      document.querySelector("#baseReward").textContent = `+${base}c`;
+      document.querySelector("#interestReward").textContent = `+${interest}c`;
+      document.querySelector("#totalGold").textContent = `${state.gold}c`;
+      document.querySelector("#continueBtn").textContent = gameOver ? "查看本局成绩" : "进入下一商店";
+      document.querySelector("#resultOverlay").classList.add("open");
+      renderBattle();
+    }
+    function continueAfterBattle() {
+      document.querySelector("#resultOverlay").classList.remove("open");
+      if (state.losses >= 3) {
+        document.querySelector("#finalWins").textContent = state.wins;
+        document.querySelector("#endSummary").textContent = `完成 ${state.wins + state.losses} 场战斗，取得 ${state.wins} 场胜利。最终持有 ${state.gold}c。`;
+        showScreen("end");
+        return;
+      }
+      state.battleNumber += 1;
+      openShop();
+    }
+    function logBattle(html) {
+      if (!state.battle) return;
+      state.battle.logs.unshift(html);
+      state.battle.logs = state.battle.logs.slice(0, 32);
+    }
+    function statusHtml(actor, player) {
+      const labels = player
+        ? [["block","格挡"],["charge","蓄力"],["strength","力量"],["haste","迅捷"],["double","双击"],["stance","守势"]]
+        : [["block","格挡"]];
+      const rows = labels.filter(([key]) => actor[key] > 0).map(([key,label]) => `<span class="status-pill">${label} ${actor[key]}</span>`);
+      return rows.join("") || `<span class="empty">暂无状态</span>`;
+    }
+    function renderBattle() {
+      const b = state.battle;
+      if (!b) return;
+      document.querySelector("#battleTitle").textContent = `第 ${state.battleNumber} 场战斗`;
+      document.querySelector("#battleGold").textContent = `${state.exitGold}c`;
+      document.querySelector("#battleWins").textContent = state.wins;
+      document.querySelector("#battleLosses").textContent = `${state.losses}/3`;
+      document.querySelector("#battleStrategy").textContent = strategyById(state.strategy).name;
+      document.querySelector("#playerHpText").textContent = `${b.player.hp} / ${b.player.maxHp}`;
+      document.querySelector("#enemyHpText").textContent = `${b.enemy.hp} / ${b.enemy.maxHp}`;
+      document.querySelector("#playerHpFill").style.transform = `scaleX(${b.player.hp / b.player.maxHp})`;
+      document.querySelector("#enemyHpFill").style.transform = `scaleX(${b.enemy.hp / b.enemy.maxHp})`;
+      document.querySelector("#playerStatuses").innerHTML = statusHtml(b.player, true);
+      document.querySelector("#enemyStatuses").innerHTML = statusHtml(b.enemy, false);
+      document.querySelector("#enemyName").textContent = b.enemyInfo.name;
+      document.querySelector("#enemyPortrait").textContent = b.enemyInfo.name;
+      document.querySelector("#enemyIntent").textContent = `下一击：${b.enemyInfo.damage} 伤害`;
+      document.querySelector("#enemyTimerFill").style.width = `${Math.min(100, b.enemyTimer / b.enemyInfo.interval * 100)}%`;
+      document.querySelector("#pendingCount").textContent = `${b.pending.length}/${state.slots}`;
+      document.querySelector("#pendingCards").innerHTML = b.pending.length
+        ? b.pending.map(id => `<span class="pending-chip">${cardById(id).name}</span>`).join("")
+        : `<span class="empty">等待抽牌策略打出卡牌</span>`;
+      document.querySelector("#chainSlots").style.display = "block";
+      document.querySelector("#chainSlots").innerHTML = b.chains.length ? b.chains.map(chain => `
+        <section class="weapon-chain">
+          <div class="weapon-head"><span>武器 ${chain.number} · 循环牌链</span><span>锻造 ${chain.forge}</span></div>
+          <div class="slots" style="--slot-count:${state.slots}">
+            ${chain.cards.map((id, index) => {
+              const card = cardById(id);
+              return `<article class="battle-card ${index === chain.index && !b.ended ? "active" : ""}">
+                <div><span class="rarity ${card.rarity}">${card.rarity}</span><div class="card-name">${card.name}</div></div>
+                <div class="card-effect">${card.effect}</div><div class="card-time">${card.time}s</div>
+              </article>`;
+            }).join("")}
+          </div>
+        </section>
+      `).join("") : `<div class="empty">尚未封装牌链</div>`;
+      const drawDuration = b.drawDuration * (b.player.haste > 0 ? .5 : 1);
+      document.querySelector("#chainProgressFill").style.width = `${Math.min(100, b.drawTimer / drawDuration * 100)}%`;
+      document.querySelector("#drawProgress").textContent = `策略循环 · 待封装 ${b.pending.length}/${state.slots} · 已生成 ${b.chains.length} 条牌链`;
+      document.querySelector("#battleStateLabel").textContent = b.ended ? (b.enemy.hp <= 0 ? "战斗胜利" : "战斗失败") : b.chains.length ? "抽牌与牌链并行运行" : "正在执行抽牌策略";
+      document.querySelector("#battleLog").innerHTML = b.logs.map(item => `<p>${item}</p>`).join("");
+    }
+    function battleLoop(now) {
+      const dt = Math.min(.05, (now - state.lastTime) / 1000) * state.speed;
+      state.lastTime = now;
+      updateBattle(dt);
+      renderBattle();
+      if (state.battle && !state.battle.ended) state.raf = requestAnimationFrame(battleLoop);
+    }
+
+    document.querySelector("#startBtn").addEventListener("click", () => showScreen("character"));
+    document.querySelector("#confirmCharacterBtn").addEventListener("click", openShop);
+    document.querySelector("#offerGrid").addEventListener("click", event => {
+      const button = event.target.closest("[data-buy]");
+      if (button) buyOffer(button.dataset.buy);
+    });
+    document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => {
+      state.filter = tab.dataset.filter;
+      document.querySelectorAll(".tab").forEach(item => item.classList.toggle("active", item === tab));
+      renderOffers();
+    }));
+    document.querySelector("#refreshBtn").addEventListener("click", () => {
+      if (state.gold < 2) return;
+      state.gold -= 2;
+      generateOffers();
+      renderShop();
+      toast("商店已刷新");
+    });
+    document.querySelector("#leaveShopBtn").addEventListener("click", () => {
+      if (state.deck.length < state.slots) return;
+      state.exitGold = state.gold;
+      createBattle();
+    });
+    document.querySelectorAll("[data-speed]").forEach(button => button.addEventListener("click", () => {
+      state.speed = Number(button.dataset.speed);
+      document.querySelectorAll("[data-speed]").forEach(item => item.classList.toggle("active", item === button));
+    }));
+    document.querySelector("#continueBtn").addEventListener("click", continueAfterBattle);
+    document.querySelector("#restartBtn").addEventListener("click", () => {
+      resetRun();
+      showScreen("start");
+    });
+    document.querySelector("#backToLevelsBtn").addEventListener("click", () => location.href = "../index.html");
+  </script>
+</body>
+</html>
