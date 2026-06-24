@@ -162,7 +162,7 @@
     .trait { padding: 5px 8px; border-radius: 5px; background: var(--green-soft); color: var(--green-dark); font-size: 12px; font-weight: 900; }
     .shop-layout { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 18px; }
     .shop-main { min-width: 0; }
-    .catalog-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
+    .catalog-columns { display: grid; gap: 12px; }
     .catalog-column {
       min-width: 0;
       border: 1px solid var(--line);
@@ -173,9 +173,12 @@
     .catalog-head { padding: 13px 14px; border-bottom: 1px solid var(--line); background: #fff; }
     .catalog-head h2 { margin: 0 0 4px; font-size: 17px; }
     .catalog-head p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
-    .offer-grid { display: grid; gap: 8px; padding: 8px; max-height: 660px; overflow: auto; }
+    .offer-grid { display: grid; gap: 8px; padding: 8px; }
+    .card-offer-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .strategy-offer-grid { grid-template-columns: minmax(0, 1fr); }
+    .weapon-offer-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .offer {
-      min-height: 205px;
+      min-height: 190px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -233,7 +236,23 @@
     .empty { color: var(--muted); font-size: 13px; line-height: 1.6; }
     .interest-preview { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; }
     .interest-preview strong { color: var(--gold); }
-    .shop-actions { display: grid; gap: 8px; }
+    .shop-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .shop-actions .interest-preview {
+      min-width: 130px;
+      min-height: 40px;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--paper);
+    }
     .battle-wrap { min-height: calc(100vh - 58px); padding: 16px; }
     .battle-grid {
       width: min(1240px, 100%);
@@ -386,6 +405,7 @@
       .character-grid { grid-template-columns: 1fr 1fr; }
       .character-card:first-child { grid-column: 1 / -1; }
       .shop-layout { grid-template-columns: 1fr; }
+      .card-offer-grid, .weapon-offer-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .side-panel { position: static; display: grid; grid-template-columns: repeat(3, 1fr); }
       .side-section { border-bottom: 0; border-right: 1px solid var(--line); }
       .side-section:last-child { border-right: 0; }
@@ -396,9 +416,12 @@
       .topbar { align-items: flex-start; }
       .brand span { display: none; }
       .stat { min-height: 30px; padding: 0 7px; }
+      .section-head { display: grid; align-items: stretch; }
       .character-grid { grid-template-columns: 1fr; }
-      .catalog-columns { grid-template-columns: 1fr; }
-      .offer-grid { max-height: none; }
+      .card-offer-grid, .weapon-offer-grid { grid-template-columns: 1fr; }
+      .shop-actions { display: grid; grid-template-columns: 1fr 1fr; }
+      .shop-actions .interest-preview { grid-column: 1 / -1; }
+      .shop-actions button { width: 100%; padding: 0 10px; }
       .character-card:first-child { grid-column: auto; }
       .character-card { min-height: 330px; }
       .side-panel { display: block; }
@@ -499,21 +522,26 @@
             <h1 id="shopHeading">开局商店</h1>
             <p>商店每次随机提供战斗卡牌、抽牌策略和武器。购买后该商品售罄，可刷新整间商店。</p>
           </div>
+          <div class="shop-actions">
+            <div class="interest-preview"><span>预计利息</span><strong id="interestPreview">+4c</strong></div>
+            <button id="refreshShopBtn" class="secondary">刷新商店 · 2c</button>
+            <button id="leaveShopBtn" class="primary">进入战斗</button>
+          </div>
         </div>
         <div class="shop-layout">
           <main class="shop-main">
             <div class="catalog-columns">
               <section class="catalog-column">
-                <div class="catalog-head"><h2>战斗卡牌</h2><p>本次随机出现四张实体卡牌。</p></div>
-                <div id="cardOfferGrid" class="offer-grid"></div>
+                <div class="catalog-head"><h2>战斗卡牌</h2><p>本次随机出现六张实体卡牌，共两行。</p></div>
+                <div id="cardOfferGrid" class="offer-grid card-offer-grid"></div>
               </section>
               <section class="catalog-column">
-                <div class="catalog-head"><h2>抽牌策略</h2><p>每次购买得到一张实体策略牌。</p></div>
-                <div id="strategyOfferGrid" class="offer-grid"></div>
+                <div class="catalog-head"><h2>抽牌策略</h2><p>本次随机出现一张实体策略牌。</p></div>
+                <div id="strategyOfferGrid" class="offer-grid strategy-offer-grid"></div>
               </section>
               <section class="catalog-column">
-                <div class="catalog-head"><h2>武器</h2><p>武器按排列顺序依次接收待封装卡牌。</p></div>
-                <div id="weaponOfferGrid" class="offer-grid"></div>
+                <div class="catalog-head"><h2>武器</h2><p>本次随机出现三把武器，按排列顺序依次封装。</p></div>
+                <div id="weaponOfferGrid" class="offer-grid weapon-offer-grid"></div>
               </section>
             </div>
           </main>
@@ -537,13 +565,6 @@
             <section class="side-section">
               <h3>第 1–20 轮 Build 数据库</h3>
               <div id="databaseList" class="database-list"></div>
-            </section>
-            <section class="side-section">
-              <div class="shop-actions">
-                <div class="interest-preview"><span>预计利息</span><strong id="interestPreview">+4c</strong></div>
-                <button id="refreshShopBtn" class="secondary">刷新商店 · 2c</button>
-                <button id="leaveShopBtn" class="primary">进入战斗</button>
-              </div>
             </section>
           </aside>
         </div>
@@ -929,8 +950,8 @@
 
     function generateShopOffers() {
       state.shopOffers = {
-        cards:makeOffers(CARDS, 4),
-        strategies:makeOffers(STRATEGIES.filter(strategy => strategy.id !== "prepare_draw"), 2),
+        cards:makeOffers(CARDS, 6),
+        strategies:makeOffers(STRATEGIES.filter(strategy => strategy.id !== "prepare_draw"), 1),
         weapons:makeOffers(WEAPONS, 3)
       };
     }
