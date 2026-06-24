@@ -210,26 +210,21 @@
     .side-section { padding: 16px; border-bottom: 1px solid var(--line); }
     .side-section:last-child { border-bottom: 0; }
     .side-section h3 { margin: 0 0 10px; font-size: 15px; }
-    .strategy-editor { display: grid; gap: 7px; }
+    .strategy-editor, .weapon-editor { display: grid; gap: 7px; }
     .strategy-slot {
       display: grid;
-      grid-template-columns: 24px 1fr;
+      grid-template-columns: 24px minmax(0, 1fr) 30px 30px;
       gap: 7px;
       align-items: center;
+      padding: 7px;
+      border-radius: 6px;
+      background: var(--paper-2);
     }
     .strategy-slot span { color: var(--muted); font-size: 12px; font-weight: 900; text-align: center; }
-    .strategy-slot select {
-      width: 100%;
-      min-height: 36px;
-      border: 1px solid #cbd5cf;
-      border-radius: 6px;
-      background: #fff;
-      color: var(--ink);
-      padding: 0 8px;
-      font: inherit;
-      font-size: 12px;
-      font-weight: 800;
-    }
+    .strategy-slot.active-item { background: var(--green-soft); }
+    .strategy-slot .queue-name { min-width: 0; color: var(--ink); text-align: left; line-height: 1.35; }
+    .strategy-slot .queue-name small { display: block; color: var(--muted); font-size: 10px; }
+    .queue-button { width: 30px; min-height: 30px; padding: 0; }
     .database-list { display: grid; gap: 6px; }
     .database-row { padding: 8px; border-radius: 5px; background: var(--paper-2); font-size: 11px; line-height: 1.5; color: var(--muted); }
     .database-row.current { background: var(--green-soft); color: var(--green-dark); }
@@ -440,7 +435,7 @@
         <div class="hero-inner">
           <div class="hero-mark">DRAW · LEVEL 001</div>
           <h1 class="hero-title">商店战斗循环</h1>
-          <p class="hero-copy">从空卡组和 40c 开始。购买卡牌、编排六槽抽牌策略、构筑单手剑牌链，在三次失败前尽可能赢下更多战斗。</p>
+          <p class="hero-copy">从空卡组和 40c 开始。购买实体卡牌与武器，调整六槽策略和武器封装顺序，在三次失败前尽可能赢下更多战斗。</p>
           <button id="startBtn" class="primary">开始游戏</button>
         </div>
       </div>
@@ -463,7 +458,7 @@
               <p>将卡牌封装进武器槽位并循环执行。可利用蓄力、力量、格挡与锻造形成不同战斗路线。</p>
               <div class="trait-row">
                 <span class="trait">100 生命</span>
-                <span class="trait">3 武器槽</span>
+              <span class="trait">顺序封装</span>
                 <span class="trait">锻造专精</span>
               </div>
             </div>
@@ -502,18 +497,18 @@
         <div class="section-head">
           <div>
             <h1 id="shopHeading">开局商店</h1>
-            <p>战斗卡牌、抽牌策略和武器分栏陈列。至少购买一把单手剑并准备三张卡牌才能离店。</p>
+            <p>商店每次随机提供战斗卡牌、抽牌策略和武器。购买后该商品售罄，可刷新整间商店。</p>
           </div>
         </div>
         <div class="shop-layout">
           <main class="shop-main">
             <div class="catalog-columns">
               <section class="catalog-column">
-                <div class="catalog-head"><h2>战斗卡牌</h2><p>中立与战士图鉴卡牌，可重复购买。</p></div>
+                <div class="catalog-head"><h2>战斗卡牌</h2><p>本次随机出现四张实体卡牌。</p></div>
                 <div id="cardOfferGrid" class="offer-grid"></div>
               </section>
               <section class="catalog-column">
-                <div class="catalog-head"><h2>抽牌策略</h2><p>购买后可装入六个策略槽位。</p></div>
+                <div class="catalog-head"><h2>抽牌策略</h2><p>每次购买得到一张实体策略牌。</p></div>
                 <div id="strategyOfferGrid" class="offer-grid"></div>
               </section>
               <section class="catalog-column">
@@ -528,8 +523,12 @@
               <div id="deckList" class="deck-list"></div>
             </section>
             <section class="side-section">
-              <h3>六槽抽牌策略</h3>
+              <h3>抽牌策略顺序</h3>
               <div id="strategyEditor" class="strategy-editor"></div>
+            </section>
+            <section class="side-section">
+              <h3>武器封装顺序</h3>
+              <div id="weaponEditor" class="weapon-editor"></div>
             </section>
             <section class="side-section">
               <h3>构筑配置</h3>
@@ -542,6 +541,7 @@
             <section class="side-section">
               <div class="shop-actions">
                 <div class="interest-preview"><span>预计利息</span><strong id="interestPreview">+4c</strong></div>
+                <button id="refreshShopBtn" class="secondary">刷新商店 · 2c</button>
                 <button id="leaveShopBtn" class="primary">进入战斗</button>
               </div>
             </section>
@@ -673,30 +673,35 @@
       { id:"fortitude", name:"坚毅", time:2, rarity:"普通", price:5, effect:"抽三张牌，打出第一张包含格挡的牌，弃置其他牌。", tag:"block" },
       { id:"forge_sword", name:"铸剑", time:2, rarity:"普通", price:5, effect:"抽三张牌，打出第一张包含铸造的牌，弃置其他牌。", tag:"forge" }
     ];
-    const WEAPON = {
-      id:"one_hand_sword", name:"单手剑", price:10, slots:3, attackTime:1,
-      effect:"三格槽位。每完成一次牌链，经过1s造成20点伤害。", damage:20
-    };
+    const WEAPONS = [
+      { id:"dumbbell", name:"哑铃", price:5, slots:2, attackTime:1, rarity:"普通", effect:"获得一点力量", forge:"锻造5：获得的力量加一点" },
+      { id:"dual_blades", name:"双刀", price:5, slots:3, attackTime:1, rarity:"普通", effect:"造成10点伤害两次", forge:"锻造5：伤害次数加一" },
+      { id:"shield", name:"盾牌", price:5, slots:4, attackTime:2, rarity:"普通", effect:"获得20点格挡", forge:"额外获得等同锻造层数的格挡" },
+      { id:"dagger", name:"匕首", price:5, slots:2, attackTime:.5, rarity:"普通", effect:"获得一点迅捷", forge:"锻造5：获得的迅捷加一点" },
+      { id:"greatsword", name:"大剑", price:5, slots:4, attackTime:2, rarity:"普通", effect:"造成20点伤害，此次攻击消耗的蓄力倍率变为1.4", forge:"锻造10：倍率变为1.5" },
+      { id:"flame_hammer", name:"炽焰之锤", price:12, slots:2, attackTime:1, rarity:"传说", effect:"前一把武器获得一层锻造", forge:"锻造10：锻造所有其他武器一次" },
+      { id:"stone_sword", name:"石中剑", price:12, slots:3, attackTime:.5, rarity:"传说", effect:"自己获得一层锻造", forge:"锻造50：造成100点伤害" }
+    ];
     const BASELINE_BUILDS = [
       {
         round:1, result:"胜利", cards:["stab","defend","prepare"],
-        strategies:["prepare_draw","prepare_draw","prepare_draw","prepare_draw","prepare_draw","prepare_draw"], weapons:1
+        strategies:["prepare_draw","prepare_draw","prepare_draw","prepare_draw","prepare_draw","prepare_draw"], weapons:["dual_blades"]
       },
       {
         round:2, result:"胜利", cards:["stab","defend","prepare","strength","heavy","defend"],
-        strategies:["battle_will","prepare_draw","prepare_draw","prepare_draw","prepare_draw","prepare_draw"], weapons:2
+        strategies:["battle_will","prepare_draw","prepare_draw","prepare_draw","prepare_draw","prepare_draw"], weapons:["dumbbell","dual_blades"]
       },
       {
         round:3, result:"胜利", cards:["stab","defend","prepare","strength","heavy","defend","polish","power","wait"],
-        strategies:["battle_will","forge_sword","prepare_draw","prepare_draw","prepare_draw","prepare_draw"], weapons:3
+        strategies:["battle_will","forge_sword","prepare_draw","prepare_draw","prepare_draw","prepare_draw"], weapons:["dagger","dual_blades","shield"]
       },
       {
         round:4, result:"胜利", cards:["stab","defend","prepare","strength","heavy","defend","polish","power","wait","counter","stance","hurry"],
-        strategies:["battle_will","fortitude","forge_sword","prepare_draw","prepare_draw","prepare_draw"], weapons:4
+        strategies:["battle_will","fortitude","forge_sword","prepare_draw","prepare_draw","prepare_draw"], weapons:["dumbbell","greatsword","shield","dual_blades"]
       },
       {
         round:5, result:"胜利", cards:["stab","defend","prepare","strength","heavy","defend","polish","power","wait","counter","stance","hurry","double","potential","borrow"],
-        strategies:["battle_will","fortitude","forge_sword","battle_will","fortitude","prepare_draw"], weapons:5
+        strategies:["battle_will","fortitude","forge_sword","battle_will","fortitude","prepare_draw"], weapons:["dagger","dumbbell","flame_hammer","greatsword","stone_sword"]
       }
     ];
 
@@ -709,9 +714,9 @@
     };
     const state = {
       gold:40, wins:0, losses:0, battleNumber:1, deck:[],
-      unlockedStrategies:["prepare_draw"],
-      strategySlots:Array(6).fill("prepare_draw"),
-      weapons:0, shopVisits:0, exitGold:0, sessionRecords:[],
+      strategyInventory:Array(6).fill("prepare_draw"),
+      weaponOrder:[], shopOffers:null, offerSerial:0,
+      shopVisits:0, exitGold:0, sessionRecords:[],
       battle:null, speed:1, raf:0, lastTime:0
     };
 
@@ -723,9 +728,9 @@
       cancelAnimationFrame(state.raf);
       Object.assign(state, {
         gold:40, wins:0, losses:0, battleNumber:1, deck:[],
-        unlockedStrategies:["prepare_draw"],
-        strategySlots:Array(6).fill("prepare_draw"),
-        weapons:0, shopVisits:0, exitGold:0, sessionRecords:[],
+        strategyInventory:Array(6).fill("prepare_draw"),
+        weaponOrder:[], shopOffers:null, offerSerial:0,
+        shopVisits:0, exitGold:0, sessionRecords:[],
         battle:null, speed:1, raf:0, lastTime:0
       });
       document.querySelector("#resultOverlay").classList.remove("open");
@@ -747,22 +752,40 @@
     }
     function cardById(id) { return CARDS.find(card => card.id === id); }
     function strategyById(id) { return STRATEGIES.find(strategy => strategy.id === id) || STRATEGIES[0]; }
+    function weaponById(id) { return WEAPONS.find(weapon => weapon.id === id); }
     function interestFor(gold) { return Math.min(5, Math.floor(gold / 5)); }
     function rarityPrice(rarity) { return ({ "普通":3, "稀有":6, "史诗":9, "传说":12 })[rarity] || 4; }
 
     function buildSnapshot() {
       return {
         cards:[...state.deck],
-        strategies:[...state.strategySlots],
-        weapons:state.weapons
+        strategies:state.strategyInventory.slice(0, 6),
+        weapons:[...state.weaponOrder]
       };
     }
 
     function openShopV2() {
       cancelAnimationFrame(state.raf);
       state.shopVisits += 1;
+      generateShopOffers();
       renderShopV2();
       showScreen("shop");
+    }
+
+    function makeOffers(items, count) {
+      return shuffle(items).slice(0, count).map(item => ({
+        uid:`offer-${state.offerSerial += 1}`,
+        ref:item.id,
+        sold:false
+      }));
+    }
+
+    function generateShopOffers() {
+      state.shopOffers = {
+        cards:makeOffers(CARDS, 4),
+        strategies:makeOffers(STRATEGIES.filter(strategy => strategy.id !== "prepare_draw"), 2),
+        weapons:makeOffers(WEAPONS, 3)
+      };
     }
 
     function cardCountMap(cards) {
@@ -786,109 +809,158 @@
         ? Object.entries(counts).map(([id, count]) => `<div class="deck-item"><span>${cardById(id).name}</span><b>×${count}</b></div>`).join("")
         : `<div class="empty">当前没有战斗卡牌。</div>`;
 
-      document.querySelector("#cardOfferGrid").innerHTML = CARDS.map(card => `
-        <article class="offer">
-          <div>
-            <div class="offer-top"><span class="rarity ${card.rarity}">${card.rarity}</span><span class="price">${card.price}c</span></div>
-            <h3>${card.name}</h3>
-            <p>${card.effect}</p>
-            <div class="meta">${card.time}s · 已有 ${counts[card.id] || 0} 张</div>
-          </div>
-          <button class="secondary" data-buy-card="${card.id}" ${state.gold < card.price ? "disabled" : ""}>购买</button>
-        </article>
-      `).join("");
-
-      document.querySelector("#strategyOfferGrid").innerHTML = STRATEGIES.filter(strategy => strategy.id !== "prepare_draw").map(strategy => {
-        const unlocked = state.unlockedStrategies.includes(strategy.id);
+      document.querySelector("#cardOfferGrid").innerHTML = state.shopOffers.cards.map(offer => {
+        const card = cardById(offer.ref);
         return `
-          <article class="offer ${unlocked ? "sold" : ""}">
+          <article class="offer ${offer.sold ? "sold" : ""}">
             <div>
-              <div class="offer-top"><span class="rarity">${strategy.rarity}</span><span class="price">${strategy.price}c</span></div>
-              <h3>${strategy.name}</h3>
-              <p>${strategy.effect}</p>
-              <div class="meta">${strategy.time}s</div>
+              <div class="offer-top"><span class="rarity ${card.rarity}">${card.rarity}</span><span class="price">${card.price}c</span></div>
+              <h3>${card.name}</h3>
+              <p>${card.effect}</p>
+              <div class="meta">${card.time}s · 已有 ${counts[card.id] || 0} 张</div>
             </div>
-            <button class="${unlocked ? "ghost" : "secondary"}" data-buy-strategy="${strategy.id}" ${unlocked || state.gold < strategy.price ? "disabled" : ""}>${unlocked ? "已解锁" : "购买"}</button>
+            <button class="${offer.sold ? "ghost" : "secondary"}" data-buy-card="${offer.uid}" ${offer.sold || state.gold < card.price ? "disabled" : ""}>${offer.sold ? "已售出" : "购买"}</button>
           </article>
         `;
       }).join("");
 
-      document.querySelector("#weaponOfferGrid").innerHTML = `
-        <article class="offer">
-          <div>
-            <div class="offer-top"><span class="rarity">标准模板</span><span class="price">${WEAPON.price}c</span></div>
-            <h3>${WEAPON.name}</h3>
-            <p>${WEAPON.effect}</p>
-            <div class="meta">当前持有 ${state.weapons} 把</div>
-          </div>
-          <button class="secondary" data-buy-weapon="${WEAPON.id}" ${state.gold < WEAPON.price ? "disabled" : ""}>购买</button>
-        </article>
-      `;
-
-      const options = state.unlockedStrategies.map(id => {
-        const strategy = strategyById(id);
-        return `<option value="${id}">${strategy.name} · ${strategy.time}s</option>`;
+      document.querySelector("#strategyOfferGrid").innerHTML = state.shopOffers.strategies.map(offer => {
+        const strategy = strategyById(offer.ref);
+        return `
+          <article class="offer ${offer.sold ? "sold" : ""}">
+            <div>
+              <div class="offer-top"><span class="rarity ${strategy.rarity}">${strategy.rarity}</span><span class="price">${strategy.price}c</span></div>
+              <h3>${strategy.name}</h3>
+              <p>${strategy.effect}</p>
+              <div class="meta">${strategy.time}s · 实体策略牌</div>
+            </div>
+            <button class="${offer.sold ? "ghost" : "secondary"}" data-buy-strategy="${offer.uid}" ${offer.sold || state.gold < strategy.price ? "disabled" : ""}>${offer.sold ? "已售出" : "购买"}</button>
+          </article>
+        `;
       }).join("");
-      document.querySelector("#strategyEditor").innerHTML = state.strategySlots.map((id, index) => `
-        <label class="strategy-slot">
-          <span>${index + 1}</span>
-          <select data-strategy-slot="${index}">${options.replace(`value="${id}"`, `value="${id}" selected`)}</select>
-        </label>
-      `).join("");
+
+      document.querySelector("#weaponOfferGrid").innerHTML = state.shopOffers.weapons.map(offer => {
+        const weapon = weaponById(offer.ref);
+        return `
+          <article class="offer ${offer.sold ? "sold" : ""}">
+            <div>
+              <div class="offer-top"><span class="rarity ${weapon.rarity}">${weapon.rarity}</span><span class="price">${weapon.price}c</span></div>
+              <h3>${weapon.name}</h3>
+              <p>${weapon.attackTime}s · ${weapon.slots} 格槽位<br>${weapon.effect}</p>
+              <div class="meta">${weapon.forge}</div>
+            </div>
+            <button class="${offer.sold ? "ghost" : "secondary"}" data-buy-weapon="${offer.uid}" ${offer.sold || state.gold < weapon.price ? "disabled" : ""}>${offer.sold ? "已售出" : "购买"}</button>
+          </article>
+        `;
+      }).join("");
+
+      document.querySelector("#strategyEditor").innerHTML = state.strategyInventory.map((id, index) => {
+        const strategy = strategyById(id);
+        return `
+          <div class="strategy-slot ${index < 6 ? "active-item" : ""}">
+            <span>${index + 1}</span>
+            <span class="queue-name">${strategy.name}<small>${strategy.time}s · ${index < 6 ? "循环中" : "备用"}</small></span>
+            <button class="queue-button ghost" data-move-strategy="${index}" data-direction="-1" title="上移" ${index === 0 ? "disabled" : ""}>↑</button>
+            <button class="queue-button ghost" data-move-strategy="${index}" data-direction="1" title="下移" ${index === state.strategyInventory.length - 1 ? "disabled" : ""}>↓</button>
+          </div>
+        `;
+      }).join("");
+
+      document.querySelector("#weaponEditor").innerHTML = state.weaponOrder.length
+        ? state.weaponOrder.map((id, index) => {
+          const weapon = weaponById(id);
+          return `
+            <div class="strategy-slot">
+              <span>${index + 1}</span>
+              <span class="queue-name">${weapon.name}<small>${weapon.slots} 格 · ${weapon.attackTime}s</small></span>
+              <button class="queue-button ghost" data-move-weapon="${index}" data-direction="-1" title="上移" ${index === 0 ? "disabled" : ""}>↑</button>
+              <button class="queue-button ghost" data-move-weapon="${index}" data-direction="1" title="下移" ${index === state.weaponOrder.length - 1 ? "disabled" : ""}>↓</button>
+            </div>
+          `;
+        }).join("")
+        : `<div class="empty">尚未购买武器。</div>`;
 
       document.querySelector("#buildSummary").innerHTML =
         `角色：<b>战士</b><br>` +
-        `武器：<b>${WEAPON.name} ×${state.weapons}</b><br>` +
-        `封装顺序：<b>从上到下</b><br>` +
-        `策略循环：<b>${state.strategySlots.map(id => strategyById(id).name).join(" → ")}</b>`;
+        `武器：<b>${state.weaponOrder.length} 把</b><br>` +
+        `封装顺序：<b>${state.weaponOrder.length ? state.weaponOrder.map(id => weaponById(id).name).join(" → ") : "无"}</b><br>` +
+        `策略循环：<b>${state.strategyInventory.slice(0, 6).map(id => strategyById(id).name).join(" → ")}</b>`;
 
       const baselineRows = BASELINE_BUILDS.map(build => `
         <div class="database-row ${Math.min(state.battleNumber, 5) === build.round ? "current" : ""}">
           <b>第 ${build.round} 轮 · 模拟${build.result}</b><br>
-          ${build.cards.length} 张牌 · ${build.weapons} 把单手剑
+          ${build.cards.length} 张牌 · ${build.weapons.map(id => weaponById(id).name).join(" → ")}
         </div>
       `).join("");
       const recordedRows = state.sessionRecords.map(record => `
         <div class="database-row">
           <b>玩家记录 · 第 ${record.round} 轮${record.won ? "胜利" : "失败"}</b><br>
-          ${record.build.cards.length} 张牌 · ${record.build.weapons} 把单手剑
+          ${record.build.cards.length} 张牌 · ${record.build.weapons.map(id => weaponById(id).name).join(" → ")}
         </div>
       `).join("");
       document.querySelector("#databaseList").innerHTML = baselineRows + recordedRows;
 
-      const canBattle = state.weapons > 0 && state.deck.length >= WEAPON.slots;
+      const firstWeapon = weaponById(state.weaponOrder[0]);
+      const canBattle = Boolean(firstWeapon) && state.deck.length >= firstWeapon.slots;
       const leaveButton = document.querySelector("#leaveShopBtn");
       leaveButton.disabled = !canBattle;
-      leaveButton.textContent = state.weapons === 0
-        ? "需要购买单手剑"
-        : state.deck.length < WEAPON.slots
-          ? `还需 ${WEAPON.slots - state.deck.length} 张卡牌`
+      leaveButton.textContent = !firstWeapon
+        ? "需要购买武器"
+        : state.deck.length < firstWeapon.slots
+          ? `还需 ${firstWeapon.slots - state.deck.length} 张卡牌`
           : "进入战斗";
+      document.querySelector("#refreshShopBtn").disabled = state.gold < 2;
     }
 
-    function buyCardV2(cardId) {
-      const card = cardById(cardId);
-      if (!card || state.gold < card.price) return;
+    function findOffer(type, uid) {
+      return state.shopOffers[type].find(offer => offer.uid === uid);
+    }
+
+    function buyCardV2(uid) {
+      const offer = findOffer("cards", uid);
+      const card = offer && cardById(offer.ref);
+      if (!card || offer.sold || state.gold < card.price) return;
       state.gold -= card.price;
       state.deck.push(card.id);
+      offer.sold = true;
       toast(`已购买「${card.name}」`);
       renderShopV2();
     }
 
-    function buyStrategyV2(strategyId) {
-      const strategy = strategyById(strategyId);
-      if (!strategy || strategy.id === "prepare_draw" || state.unlockedStrategies.includes(strategy.id) || state.gold < strategy.price) return;
+    function buyStrategyV2(uid) {
+      const offer = findOffer("strategies", uid);
+      const strategy = offer && strategyById(offer.ref);
+      if (!strategy || offer.sold || state.gold < strategy.price) return;
       state.gold -= strategy.price;
-      state.unlockedStrategies.push(strategy.id);
-      toast(`已解锁「${strategy.name}」`);
+      state.strategyInventory.push(strategy.id);
+      offer.sold = true;
+      toast(`已购买策略牌「${strategy.name}」`);
       renderShopV2();
     }
 
-    function buyWeaponV2() {
-      if (state.gold < WEAPON.price) return;
-      state.gold -= WEAPON.price;
-      state.weapons += 1;
-      toast(`已购买「${WEAPON.name}」`);
+    function buyWeaponV2(uid) {
+      const offer = findOffer("weapons", uid);
+      const weapon = offer && weaponById(offer.ref);
+      if (!weapon || offer.sold || state.gold < weapon.price) return;
+      state.gold -= weapon.price;
+      state.weaponOrder.push(weapon.id);
+      offer.sold = true;
+      toast(`已购买「${weapon.name}」`);
+      renderShopV2();
+    }
+
+    function moveQueueItem(items, index, direction) {
+      const next = index + direction;
+      if (next < 0 || next >= items.length) return;
+      [items[index], items[next]] = [items[next], items[index]];
+      renderShopV2();
+    }
+
+    function refreshShopV2() {
+      if (state.gold < 2) return;
+      state.gold -= 2;
+      generateShopOffers();
+      toast("商店已刷新");
       renderShopV2();
     }
 
@@ -898,7 +970,7 @@
         deck:shuffle(build.cards), discard:[], pending:[], chains:[],
         strategies:[...build.strategies], strategyIndex:0, strategyTimer:0,
         strategyDuration:strategyById(build.strategies[0]).time,
-        weapons:Array.from({length:build.weapons}, (_, index) => ({ index:index + 1, used:false }))
+        weapons:build.weapons.map((id, index) => ({ id, index:index + 1, used:false }))
       };
     }
 
@@ -953,14 +1025,15 @@
 
     function trySealV2(actor) {
       const weapon = actor.weapons.find(item => !item.used);
-      if (!weapon || actor.pending.length < WEAPON.slots) return;
+      const weaponData = weapon && weaponById(weapon.id);
+      if (!weaponData || actor.pending.length < weaponData.slots) return;
       weapon.used = true;
-      const cards = actor.pending.splice(0, WEAPON.slots);
+      const cards = actor.pending.splice(0, weaponData.slots);
       actor.chains.push({
         weapon, cards, cardIndex:0, cardTimer:0, cardDuration:cardById(cards[0]).time,
         weaponTimer:0, waitingWeapon:false, forge:0
       });
-      logBattleV2(`${actor.name} 将 ${cards.map(id => cardById(id).name).join("、")} 封装进单手剑 ${weapon.index}。`);
+      logBattleV2(`${actor.name} 按顺序将 ${cards.map(id => cardById(id).name).join("、")} 封装进第 ${weapon.index} 把武器「${weaponData.name}」。`);
     }
 
     function roundValue(value) {
@@ -976,9 +1049,9 @@
       return { absorbed, dealt };
     }
 
-    function attackV2(source, target, base, chain, strengthMultiplier = 1, returnCharge = false) {
+    function attackV2(source, target, base, chain, strengthMultiplier = 1, returnCharge = false, chargeBase = 1.2) {
       const chargeBefore = source.charge;
-      const amount = roundValue((base + source.strength * strengthMultiplier) * Math.pow(1.2, chargeBefore));
+      const amount = roundValue((base + source.strength * strengthMultiplier) * Math.pow(chargeBase, chargeBefore));
       source.charge = 0;
       const hits = source.double > 0 ? 2 : 1;
       source.double = Math.max(0, source.double - 1);
@@ -1018,15 +1091,70 @@
           break;
         }
         case "stance": source.stance += 1; message = "下一次攻击造成伤害时获得等量格挡。"; break;
-        case "forge": chain.forge += 1; message = `单手剑 ${chain.weapon.index} 获得一层锻造。`; break;
+        case "forge": chain.forge += 1; message = `「${weaponById(chain.weapon.id).name}」获得一层锻造。`; break;
         case "bloodforge": {
           const selfDamage = dealDamageV2(source, 10).dealt;
           chain.forge += 2;
-          message = `受到 ${selfDamage} 点伤害，单手剑 ${chain.weapon.index} 获得两层锻造。`;
+          message = `受到 ${selfDamage} 点伤害，「${weaponById(chain.weapon.id).name}」获得两层锻造。`;
           break;
         }
       }
       logBattleV2(`${source.name} 的「<b>${card.name}</b>」${message}`);
+    }
+
+    function triggerWeaponV2(source, target, chain) {
+      const weapon = weaponById(chain.weapon.id);
+      let message = "";
+      if (weapon.id === "dumbbell") {
+        const amount = chain.forge >= 5 ? 2 : 1;
+        source.strength += amount;
+        message = `获得 ${amount} 点力量。`;
+      }
+      if (weapon.id === "dual_blades") {
+        const hits = chain.forge >= 5 ? 3 : 2;
+        let total = 0;
+        for (let index = 0; index < hits; index += 1) total = roundValue(total + attackV2(source, target, 10, chain));
+        message = `攻击 ${hits} 次，共造成 <b>${total}</b> 点伤害。`;
+      }
+      if (weapon.id === "shield") {
+        const amount = 20 + chain.forge;
+        source.block = roundValue(source.block + amount);
+        message = `获得 ${amount} 点格挡。`;
+      }
+      if (weapon.id === "dagger") {
+        const amount = chain.forge >= 5 ? 2 : 1;
+        source.haste += amount;
+        message = `获得 ${amount} 点迅捷。`;
+      }
+      if (weapon.id === "greatsword") {
+        const multiplier = chain.forge >= 10 ? 1.5 : 1.4;
+        const damage = attackV2(source, target, 20, chain, 1, false, multiplier);
+        message = `以 ${multiplier} 蓄力倍率造成 <b>${damage}</b> 点伤害。`;
+      }
+      if (weapon.id === "flame_hammer") {
+        if (chain.forge >= 10) {
+          source.chains.filter(other => other !== chain).forEach(other => { other.forge += 1; });
+          message = "令所有其他武器获得一层锻造。";
+        } else {
+          const previous = source.chains.find(other => other.weapon.index === chain.weapon.index - 1);
+          if (previous) {
+            previous.forge += 1;
+            message = `令前一把武器「${weaponById(previous.weapon.id).name}」获得一层锻造。`;
+          } else {
+            message = "当前没有已封装的前一把武器。";
+          }
+        }
+      }
+      if (weapon.id === "stone_sword") {
+        chain.forge += 1;
+        if (chain.forge >= 50) {
+          const damage = dealDamageV2(target, 100).dealt;
+          message = `自身获得一层锻造，并造成 <b>${damage}</b> 点伤害。`;
+        } else {
+          message = "自身获得一层锻造。";
+        }
+      }
+      logBattleV2(`${source.name} 的「<b>${weapon.name}</b>」${message}`);
     }
 
     function updateActorV2(actor, target, dt) {
@@ -1038,11 +1166,11 @@
       actor.chains.forEach(chain => {
         if (chain.waitingWeapon) {
           chain.weaponTimer += dt;
-          if (chain.weaponTimer >= WEAPON.attackTime) {
+          const weapon = weaponById(chain.weapon.id);
+          if (chain.weaponTimer >= weapon.attackTime) {
             chain.weaponTimer = 0;
             chain.waitingWeapon = false;
-            const damage = attackV2(actor, target, WEAPON.damage, chain);
-            logBattleV2(`${actor.name} 的单手剑 ${chain.weapon.index} 造成 <b>${damage}</b> 点伤害。`);
+            triggerWeaponV2(actor, target, chain);
           }
           return;
         }
@@ -1119,23 +1247,26 @@
     }
 
     function renderActorChainsV2(actor, active) {
-      return actor.chains.length ? actor.chains.map(chain => `
-        <section class="weapon-chain">
-          <div class="weapon-head">
-            <span>单手剑 ${chain.weapon.index} · 三格牌链</span>
-            <span>锻造 ${chain.forge}${chain.waitingWeapon ? " · 武器攻击中" : ""}</span>
-          </div>
-          <div class="slots" style="--slot-count:${WEAPON.slots}">
-            ${chain.cards.map((id, index) => {
-              const card = cardById(id);
-              return `<article class="battle-card ${active && !chain.waitingWeapon && index === chain.cardIndex ? "active" : ""}">
-                <div><span class="rarity ${card.rarity}">${card.rarity}</span><div class="card-name">${card.name}</div></div>
-                <div class="card-effect">${card.effect}</div><div class="card-time">${card.time}s</div>
-              </article>`;
-            }).join("")}
-          </div>
-        </section>
-      `).join("") : `<div class="empty">尚未封装牌链</div>`;
+      return actor.chains.length ? actor.chains.map(chain => {
+        const weapon = weaponById(chain.weapon.id);
+        return `
+          <section class="weapon-chain">
+            <div class="weapon-head">
+              <span>${chain.weapon.index}. ${weapon.name} · ${weapon.slots} 格牌链</span>
+              <span>锻造 ${chain.forge}${chain.waitingWeapon ? " · 武器效果准备中" : ""}</span>
+            </div>
+            <div class="slots" style="--slot-count:${weapon.slots}">
+              ${chain.cards.map((id, index) => {
+                const card = cardById(id);
+                return `<article class="battle-card ${active && !chain.waitingWeapon && index === chain.cardIndex ? "active" : ""}">
+                  <div><span class="rarity ${card.rarity}">${card.rarity}</span><div class="card-name">${card.name}</div></div>
+                  <div class="card-effect">${card.effect}</div><div class="card-time">${card.time}s</div>
+                </article>`;
+              }).join("")}
+            </div>
+          </section>
+        `;
+      }).join("") : `<div class="empty">尚未封装牌链</div>`;
     }
 
     function renderBattleV2() {
@@ -1159,11 +1290,12 @@
       document.querySelector("#enemyIntent").textContent = `基础数据库 · 第 ${battle.databaseBuild.round} 轮模拟胜利 Build`;
       document.querySelector("#enemyBuildText").innerHTML =
         `${battle.databaseBuild.cards.length} 张牌<br>` +
-        `${battle.databaseBuild.weapons} 把单手剑<br>` +
+        `${battle.databaseBuild.weapons.map(id => weaponById(id).name).join(" → ")}<br>` +
         `${battle.databaseBuild.strategies.map(id => strategyById(id).name).join(" → ")}`;
 
       const playerWeapon = player.weapons.find(item => !item.used);
-      document.querySelector("#pendingCount").textContent = `${player.pending.length}/${playerWeapon ? WEAPON.slots : "无空武器"}`;
+      const playerWeaponData = playerWeapon && weaponById(playerWeapon.id);
+      document.querySelector("#pendingCount").textContent = `${player.pending.length}/${playerWeaponData ? playerWeaponData.slots : "无空武器"}`;
       document.querySelector("#pendingCards").innerHTML = player.pending.length
         ? player.pending.map(id => `<span class="pending-chip">${cardById(id).name}</span>`).join("")
         : `<span class="empty">等待抽牌策略打出卡牌</span>`;
@@ -1201,16 +1333,20 @@
     });
     document.querySelector("#weaponOfferGrid").addEventListener("click", event => {
       const button = event.target.closest("[data-buy-weapon]");
-      if (button) buyWeaponV2();
+      if (button) buyWeaponV2(button.dataset.buyWeapon);
     });
-    document.querySelector("#strategyEditor").addEventListener("change", event => {
-      const select = event.target.closest("[data-strategy-slot]");
-      if (!select) return;
-      state.strategySlots[Number(select.dataset.strategySlot)] = select.value;
-      renderShopV2();
+    document.querySelector("#strategyEditor").addEventListener("click", event => {
+      const button = event.target.closest("[data-move-strategy]");
+      if (button) moveQueueItem(state.strategyInventory, Number(button.dataset.moveStrategy), Number(button.dataset.direction));
     });
+    document.querySelector("#weaponEditor").addEventListener("click", event => {
+      const button = event.target.closest("[data-move-weapon]");
+      if (button) moveQueueItem(state.weaponOrder, Number(button.dataset.moveWeapon), Number(button.dataset.direction));
+    });
+    document.querySelector("#refreshShopBtn").addEventListener("click", refreshShopV2);
     document.querySelector("#leaveShopBtn").addEventListener("click", () => {
-      if (state.weapons < 1 || state.deck.length < WEAPON.slots) return;
+      const firstWeapon = weaponById(state.weaponOrder[0]);
+      if (!firstWeapon || state.deck.length < firstWeapon.slots) return;
       createBattleV2();
     });
     document.querySelectorAll("[data-speed]").forEach(button => button.addEventListener("click", () => {
