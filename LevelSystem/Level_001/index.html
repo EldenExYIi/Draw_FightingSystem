@@ -357,6 +357,12 @@
     .battle-log { min-height: 150px; max-height: 220px; overflow: auto; padding: 14px 18px; border-top: 1px solid var(--line); background: #f6f7f5; font-size: 12px; line-height: 1.65; }
     .battle-log p { margin: 0 0 5px; }
     .battle-log b { color: var(--green-dark); }
+    .log-card-ref {
+      color: var(--green-dark);
+      font-weight: 1000;
+      border-bottom: 1px dashed currentColor;
+      cursor: help;
+    }
     .overlay {
       position: fixed;
       inset: 0;
@@ -399,6 +405,23 @@
     .result-battle-log p { margin: 0 0 6px; color: var(--ink); }
     .result-battle-log p:last-child { margin-bottom: 0; }
     .result-battle-log b { color: var(--green-dark); }
+    .card-tooltip {
+      position: fixed;
+      z-index: 140;
+      display: none;
+      width: min(280px, calc(100vw - 20px));
+      pointer-events: none;
+      padding: 13px 14px;
+      border: 1px solid #b9c8bf;
+      border-radius: 7px;
+      background: #fff;
+      box-shadow: 0 14px 38px rgba(24,39,32,.22);
+    }
+    .card-tooltip.open { display: block; }
+    .card-tooltip-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+    .card-tooltip h4 { margin: 0; font-size: 17px; }
+    .card-tooltip-meta { color: var(--green-dark); font-size: 11px; font-weight: 900; white-space: nowrap; }
+    .card-tooltip p { margin: 9px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
     .end-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #27342f; color: #fff; }
     .end-panel { width: min(680px, 100%); text-align: center; }
@@ -699,6 +722,13 @@
     </div>
   </div>
   <div id="toast" class="toast"></div>
+  <div id="cardTooltip" class="card-tooltip" role="tooltip">
+    <div class="card-tooltip-head">
+      <h4 id="cardTooltipName"></h4>
+      <span id="cardTooltipMeta" class="card-tooltip-meta"></span>
+    </div>
+    <p id="cardTooltipEffect"></p>
+  </div>
 
   <script>
     const CARDS = [
@@ -807,6 +837,11 @@
     function cardById(id) { return CARDS.find(card => card.id === id); }
     function strategyById(id) { return STRATEGIES.find(strategy => strategy.id === id) || STRATEGIES[0]; }
     function weaponById(id) { return WEAPONS.find(weapon => weapon.id === id); }
+    function cardLogHtml(id) {
+      const card = cardById(id);
+      const title = `${card.name}｜${card.rarity}｜${card.time}s｜${card.effect}`;
+      return `<span class="log-card-ref" data-log-card="${card.id}" title="${title}">${card.name}</span>`;
+    }
     function interestFor(gold) { return Math.min(5, Math.floor(gold / 5)); }
     function rarityPrice(rarity) { return ({ "普通":3, "稀有":6, "史诗":9, "传说":12 })[rarity] || 4; }
 
@@ -1220,10 +1255,10 @@
       actor.discard.push(...drawn);
       if (chosen) {
         actor.pending.push(chosen);
-        logBattleV2(`${actor.name} 的「<b>${strategy.name}</b>」打出 ${cardById(chosen).name}${drawn.length ? `，弃置 ${drawn.map(id => cardById(id).name).join("、")}` : ""}。`);
+        logBattleV2(`${actor.name} 的「<b>${strategy.name}</b>」打出 ${cardLogHtml(chosen)}${drawn.length ? `，弃置 ${drawn.map(cardLogHtml).join("、")}` : ""}。`);
         trySealV2(actor);
       } else if (drawn.length) {
-        logBattleV2(`${actor.name} 的「<b>${strategy.name}</b>」未找到目标，弃置 ${drawn.map(id => cardById(id).name).join("、")}。`);
+        logBattleV2(`${actor.name} 的「<b>${strategy.name}</b>」未找到目标，弃置 ${drawn.map(cardLogHtml).join("、")}。`);
       }
       actor.strategyIndex = (actor.strategyIndex + 1) % actor.strategies.length;
       const next = strategyById(actor.strategies[actor.strategyIndex]);
@@ -1241,7 +1276,7 @@
         weapon, cards, cardIndex:0, cardTimer:0, cardDuration:cardById(cards[0]).time,
         weaponTimer:0, waitingWeapon:false, forge:0
       });
-      logBattleV2(`${actor.name} 按顺序将 ${cards.map(id => cardById(id).name).join("、")} 封装进第 ${weapon.index} 把武器「${weaponData.name}」。`);
+      logBattleV2(`${actor.name} 按顺序将 ${cards.map(cardLogHtml).join("、")} 封装进第 ${weapon.index} 把武器「${weaponData.name}」。`);
     }
 
     function roundValue(value) {
@@ -1307,7 +1342,7 @@
           break;
         }
       }
-      logBattleV2(`${source.name} 的「<b>${card.name}</b>」${message}`);
+      logBattleV2(`${source.name} 的「${cardLogHtml(card.id)}」${message}`);
     }
 
     function triggerWeaponV2(source, target, chain) {
@@ -1527,7 +1562,9 @@
       document.querySelector("#battleStateLabel").textContent = battle.ended
         ? enemy.hp <= 0 ? "战斗胜利" : "战斗失败"
         : "双方 Build 自动战斗中";
-      document.querySelector("#battleLog").innerHTML = battle.logs.map(item => `<p>${item}</p>`).join("");
+      const battleLog = document.querySelector("#battleLog");
+      const logHtml = battle.logs.map(item => `<p>${item}</p>`).join("");
+      if (battleLog.innerHTML !== logHtml) battleLog.innerHTML = logHtml;
     }
 
     function battleLoopV2(now) {
@@ -1537,6 +1574,38 @@
       renderBattleV2();
       if (state.battle && !state.battle.ended) state.raf = requestAnimationFrame(battleLoopV2);
     }
+
+    function positionCardTooltip(event) {
+      const tooltip = document.querySelector("#cardTooltip");
+      const gap = 14;
+      const width = tooltip.offsetWidth;
+      const height = tooltip.offsetHeight;
+      let left = event.clientX + gap;
+      let top = event.clientY + gap;
+      if (left + width > window.innerWidth - 10) left = event.clientX - width - gap;
+      if (top + height > window.innerHeight - 10) top = event.clientY - height - gap;
+      tooltip.style.left = `${Math.max(10, left)}px`;
+      tooltip.style.top = `${Math.max(10, top)}px`;
+    }
+
+    document.addEventListener("mouseover", event => {
+      const cardRef = event.target.closest("[data-log-card]");
+      if (!cardRef) return;
+      const card = cardById(cardRef.dataset.logCard);
+      if (!card) return;
+      document.querySelector("#cardTooltipName").textContent = card.name;
+      document.querySelector("#cardTooltipMeta").textContent = `${card.rarity} · ${card.time}s`;
+      document.querySelector("#cardTooltipEffect").textContent = card.effect;
+      document.querySelector("#cardTooltip").classList.add("open");
+      positionCardTooltip(event);
+    });
+    document.addEventListener("mousemove", event => {
+      if (document.querySelector("#cardTooltip").classList.contains("open")) positionCardTooltip(event);
+    });
+    document.addEventListener("mouseout", event => {
+      if (!event.target.closest("[data-log-card]")) return;
+      document.querySelector("#cardTooltip").classList.remove("open");
+    });
 
     referenceBuildDatabase = generateReferenceBuildDatabase(20);
 
