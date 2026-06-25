@@ -776,7 +776,7 @@
       { id:"dual_blades", name:"双刀", price:5, slots:3, attackTime:1, rarity:"普通", effect:"造成10点伤害两次", forge:"锻造5：伤害次数加一" },
       { id:"shield", name:"盾牌", price:5, slots:4, attackTime:2, rarity:"普通", effect:"获得20点格挡", forge:"额外获得等同锻造层数的格挡" },
       { id:"dagger", name:"匕首", price:5, slots:2, attackTime:.5, rarity:"普通", effect:"获得一点迅捷", forge:"锻造5：获得的迅捷加一点" },
-      { id:"greatsword", name:"大剑", price:5, slots:4, attackTime:2, rarity:"普通", effect:"造成20点伤害，此次攻击消耗的蓄力倍率变为1.4", forge:"锻造10：倍率变为1.5" },
+      { id:"greatsword", name:"大剑", price:5, slots:4, attackTime:2, rarity:"普通", effect:"造成20点伤害，此次攻击消耗的蓄力倍率变为1.2", forge:"锻造10：倍率变为1.3" },
       { id:"flame_hammer", name:"炽焰之锤", price:12, slots:2, attackTime:1, rarity:"传说", effect:"前一把武器获得一层锻造", forge:"锻造10：锻造所有其他武器一次" },
       { id:"stone_sword", name:"石中剑", price:12, slots:3, attackTime:.5, rarity:"传说", effect:"自己获得一层锻造", forge:"锻造50：造成100点伤害" }
     ];
@@ -1384,7 +1384,7 @@
       return `受到 <b>${result.dealt}</b> 点生命伤害`;
     }
 
-    function attackV2(source, target, base, chain, strengthMultiplier = 1, returnCharge = false, chargeBase = 1.2) {
+    function attackV2(source, target, base, chain, strengthMultiplier = 1, returnCharge = false, chargeBase = 1.1) {
       const chargeBefore = source.charge;
       const amount = roundValue((base + source.strength * strengthMultiplier) * Math.pow(chargeBase, chargeBefore));
       source.charge = 0;
@@ -1472,7 +1472,7 @@
         message = `获得 ${amount} 点迅捷。`;
       }
       if (weapon.id === "greatsword") {
-        const multiplier = chain.forge >= 10 ? 1.5 : 1.4;
+        const multiplier = chain.forge >= 10 ? 1.3 : 1.2;
         const damage = attackV2(source, target, 20, chain, 1, false, multiplier);
         message = `以 ${multiplier} 蓄力倍率${damageLogText(damage)}。`;
       }
