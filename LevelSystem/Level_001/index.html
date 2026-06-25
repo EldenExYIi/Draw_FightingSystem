@@ -357,7 +357,21 @@
     .battle-log { min-height: 150px; max-height: 220px; overflow: auto; padding: 14px 18px; border-top: 1px solid var(--line); background: #f6f7f5; font-size: 12px; line-height: 1.65; }
     .battle-log p { margin: 0 0 5px; }
     .battle-log b { color: var(--green-dark); }
-    .log-card-ref {
+    .timeline-event {
+      display: grid;
+      grid-template-columns: 58px minmax(0, 1fr);
+      gap: 9px;
+      align-items: start;
+    }
+    .timeline-time {
+      color: var(--gold);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      font-weight: 1000;
+      white-space: nowrap;
+    }
+    .timeline-content { min-width: 0; }
+    .log-ref {
       color: var(--green-dark);
       font-weight: 1000;
       border-bottom: 1px dashed currentColor;
@@ -842,10 +856,43 @@
     function cardById(id) { return CARDS.find(card => card.id === id); }
     function strategyById(id) { return STRATEGIES.find(strategy => strategy.id === id) || STRATEGIES[0]; }
     function weaponById(id) { return WEAPONS.find(weapon => weapon.id === id); }
-    function cardLogHtml(id) {
-      const card = cardById(id);
-      const title = `${card.name}｜${card.rarity}｜${card.time}s｜${card.effect}`;
-      return `<span class="log-card-ref" data-log-card="${card.id}" title="${title}">${card.name}</span>`;
+    function logReference(kind, id) {
+      if (kind === "card") {
+        const card = cardById(id);
+        return card && { name:card.name, meta:`${card.rarity} · ${card.time}s`, effect:card.effect };
+      }
+      if (kind === "strategy") {
+        const strategy = strategyById(id);
+        return strategy && { name:strategy.name, meta:`${strategy.rarity} · ${strategy.time}s`, effect:strategy.effect };
+      }
+      if (kind === "weapon") {
+        const weapon = weaponById(id);
+        return weapon && {
+          name:weapon.name,
+          meta:`${weapon.rarity} · ${weapon.attackTime}s · ${weapon.slots} 格`,
+          effect:`${weapon.effect}；${weapon.forge}`
+        };
+      }
+      return null;
+    }
+    function logRefHtml(kind, id) {
+      const ref = logReference(kind, id);
+      if (!ref) return "";
+      const title = `${ref.name}｜${ref.meta}｜${ref.effect}`;
+      return `<span class="log-ref" data-log-kind="${kind}" data-log-id="${id}" title="${title}">${ref.name}</span>`;
+    }
+    function cardLogHtml(id) { return logRefHtml("card", id); }
+    function strategyLogHtml(id) { return logRefHtml("strategy", id); }
+    function weaponLogHtml(id) { return logRefHtml("weapon", id); }
+    function formatBattleTime(seconds) {
+      const tenths = Math.max(0, Math.round(seconds * 10));
+      const minutes = Math.floor(tenths / 600);
+      const remaining = tenths % 600;
+      const wholeSeconds = Math.floor(remaining / 10);
+      return `${String(minutes).padStart(2, "0")}:${String(wholeSeconds).padStart(2, "0")}.${remaining % 10}`;
+    }
+    function logEntryHtml(entry) {
+      return `<p class="timeline-event"><span class="timeline-time">${formatBattleTime(entry.time)}</span><span class="timeline-content">${entry.html}</span></p>`;
     }
     function interestFor(gold) { return Math.min(5, Math.floor(gold / 5)); }
     function rarityPrice(rarity) { return ({ "普通":3, "稀有":6, "史诗":9, "传说":12 })[rarity] || 4; }
@@ -1243,7 +1290,7 @@
         databaseBuild:replayData.databaseBuild,
         databaseRecord:replayData.databaseRecord,
         databaseRound:replayData.databaseRound,
-        replayData, replay, ended:false, logs:[]
+        replayData, replay, elapsed:0, accumulator:0, ended:false, logs:[]
       };
       if (!replay) state.exitGold = state.gold;
       state.speed = 1;
@@ -1274,15 +1321,16 @@
         const cardId = drawOneV2(actor);
         if (cardId) drawn.push(cardId);
       }
+      logBattleV2(`${actor.name} 的抽牌策略「${strategyLogHtml(strategy.id)}」启动，抽取：${drawn.length ? drawn.map(cardLogHtml).join("、") : "牌组中没有可抽取的牌"}。`);
       let chosenIndex = strategy.id === "prepare_draw" ? 0 : drawn.findIndex(id => cardById(id).tags.includes(strategy.tag));
       const chosen = chosenIndex >= 0 ? drawn.splice(chosenIndex, 1)[0] : "";
       actor.discard.push(...drawn);
       if (chosen) {
         actor.pending.push(chosen);
-        logBattleV2(`${actor.name} 的「<b>${strategy.name}</b>」打出 ${cardLogHtml(chosen)}${drawn.length ? `，弃置 ${drawn.map(cardLogHtml).join("、")}` : ""}。`);
+        logBattleV2(`${actor.name} 的「${strategyLogHtml(strategy.id)}」选择打出 ${cardLogHtml(chosen)}${drawn.length ? `，弃置 ${drawn.map(cardLogHtml).join("、")}` : ""}。`);
         trySealV2(actor);
       } else if (drawn.length) {
-        logBattleV2(`${actor.name} 的「<b>${strategy.name}</b>」未找到目标，弃置 ${drawn.map(cardLogHtml).join("、")}。`);
+        logBattleV2(`${actor.name} 的「${strategyLogHtml(strategy.id)}」未找到目标，弃置 ${drawn.map(cardLogHtml).join("、")}。`);
       }
       actor.strategyIndex = (actor.strategyIndex + 1) % actor.strategies.length;
       const next = strategyById(actor.strategies[actor.strategyIndex]);
@@ -1300,7 +1348,7 @@
         weapon, cards, cardIndex:0, cardTimer:0, cardDuration:cardById(cards[0]).time,
         weaponTimer:0, waitingWeapon:false, forge:0
       });
-      logBattleV2(`${actor.name} 按顺序将 ${cards.map(cardLogHtml).join("、")} 封装进第 ${weapon.index} 把武器「${weaponData.name}」。`);
+      logBattleV2(`${actor.name} 按顺序将 ${cards.map(cardLogHtml).join("、")} 封装进第 ${weapon.index} 把武器「${weaponLogHtml(weaponData.id)}」。`);
     }
 
     function roundValue(value) {
@@ -1358,11 +1406,11 @@
           break;
         }
         case "stance": source.stance += 1; message = "下一次攻击造成伤害时获得等量格挡。"; break;
-        case "forge": chain.forge += 1; message = `「${weaponById(chain.weapon.id).name}」获得一层锻造。`; break;
+        case "forge": chain.forge += 1; message = `「${weaponLogHtml(chain.weapon.id)}」获得一层锻造。`; break;
         case "bloodforge": {
           const selfDamage = dealDamageV2(source, 10).dealt;
           chain.forge += 2;
-          message = `受到 ${selfDamage} 点伤害，「${weaponById(chain.weapon.id).name}」获得两层锻造。`;
+          message = `受到 ${selfDamage} 点伤害，「${weaponLogHtml(chain.weapon.id)}」获得两层锻造。`;
           break;
         }
       }
@@ -1406,7 +1454,7 @@
           const previous = source.chains.find(other => other.weapon.index === chain.weapon.index - 1);
           if (previous) {
             previous.forge += 1;
-            message = `令前一把武器「${weaponById(previous.weapon.id).name}」获得一层锻造。`;
+            message = `令前一把武器「${weaponLogHtml(previous.weapon.id)}」获得一层锻造。`;
           } else {
             message = "当前没有已封装的前一把武器。";
           }
@@ -1421,7 +1469,7 @@
           message = "自身获得一层锻造。";
         }
       }
-      logBattleV2(`${source.name} 的「<b>${weapon.name}</b>」${message}`);
+      logBattleV2(`${source.name} 的「${weaponLogHtml(weapon.id)}」${message}`);
     }
 
     function updateActorV2(actor, target, dt) {
@@ -1458,6 +1506,7 @@
     function updateBattleV2(dt) {
       const battle = state.battle;
       if (!battle || battle.ended) return;
+      battle.elapsed = roundValue(battle.elapsed + dt);
       updateActorV2(battle.player, battle.enemy, dt);
       if (battle.enemy.hp > 0) updateActorV2(battle.enemy, battle.player, dt);
       if (battle.enemy.hp <= 0) finishBattleV2(true);
@@ -1476,7 +1525,7 @@
         document.querySelector("#resultText").textContent = "本次回放不会重复结算奖励、胜负或 Build 数据。";
         document.querySelector("#rewardBreakdown").style.display = "none";
         document.querySelector("#resultBattleLog").innerHTML = battle.logs.length
-          ? battle.logs.map(item => `<p>${item}</p>`).join("")
+          ? battle.logs.map(logEntryHtml).join("")
           : `<p class="empty">本场暂无战斗日志。</p>`;
         document.querySelector("#replayBtn").textContent = "再次回放";
         document.querySelector("#continueBtn").textContent = "返回战斗结算";
@@ -1519,7 +1568,7 @@
       document.querySelector("#interestReward").textContent = `+${result.interest}c`;
       document.querySelector("#totalGold").textContent = `${result.totalGold}c`;
       document.querySelector("#resultBattleLog").innerHTML = result.logs.length
-        ? result.logs.map(item => `<p>${item}</p>`).join("")
+        ? result.logs.map(logEntryHtml).join("")
         : `<p class="empty">本场暂无战斗日志。</p>`;
       document.querySelector("#replayBtn").textContent = "回放本场";
       document.querySelector("#continueBtn").textContent = result.gameOver ? "查看本局成绩" : "进入下一商店";
@@ -1549,8 +1598,8 @@
 
     function logBattleV2(html) {
       if (silentSimulation || !state.battle) return;
-      state.battle.logs.unshift(html);
-      state.battle.logs = state.battle.logs.slice(0, 40);
+      state.battle.logs.unshift({ time:state.battle.elapsed || 0, html });
+      state.battle.logs = state.battle.logs.slice(0, 200);
     }
 
     function actorStatusesV2(actor) {
@@ -1627,14 +1676,22 @@
         ? enemy.hp <= 0 ? "战斗胜利" : "战斗失败"
         : "双方 Build 自动战斗中";
       const battleLog = document.querySelector("#battleLog");
-      const logHtml = battle.logs.map(item => `<p>${item}</p>`).join("");
+      const logHtml = battle.logs.map(logEntryHtml).join("");
       if (battleLog.innerHTML !== logHtml) battleLog.innerHTML = logHtml;
     }
 
     function battleLoopV2(now) {
-      const dt = Math.min(.05, (now - state.lastTime) / 1000) * state.speed;
+      const realDt = Math.min(.1, (now - state.lastTime) / 1000);
       state.lastTime = now;
-      updateBattleV2(dt);
+      if (state.battle && !state.battle.ended) {
+        state.battle.accumulator += realDt * state.speed;
+        let steps = 0;
+        while (state.battle.accumulator >= .05 && !state.battle.ended && steps < 40) {
+          updateBattleV2(.05);
+          state.battle.accumulator -= .05;
+          steps += 1;
+        }
+      }
       renderBattleV2();
       if (state.battle && !state.battle.ended) state.raf = requestAnimationFrame(battleLoopV2);
     }
@@ -1653,13 +1710,13 @@
     }
 
     document.addEventListener("mouseover", event => {
-      const cardRef = event.target.closest("[data-log-card]");
-      if (!cardRef) return;
-      const card = cardById(cardRef.dataset.logCard);
-      if (!card) return;
-      document.querySelector("#cardTooltipName").textContent = card.name;
-      document.querySelector("#cardTooltipMeta").textContent = `${card.rarity} · ${card.time}s`;
-      document.querySelector("#cardTooltipEffect").textContent = card.effect;
+      const logRef = event.target.closest("[data-log-kind][data-log-id]");
+      if (!logRef) return;
+      const ref = logReference(logRef.dataset.logKind, logRef.dataset.logId);
+      if (!ref) return;
+      document.querySelector("#cardTooltipName").textContent = ref.name;
+      document.querySelector("#cardTooltipMeta").textContent = ref.meta;
+      document.querySelector("#cardTooltipEffect").textContent = ref.effect;
       document.querySelector("#cardTooltip").classList.add("open");
       positionCardTooltip(event);
     });
@@ -1667,7 +1724,7 @@
       if (document.querySelector("#cardTooltip").classList.contains("open")) positionCardTooltip(event);
     });
     document.addEventListener("mouseout", event => {
-      if (!event.target.closest("[data-log-card]")) return;
+      if (!event.target.closest("[data-log-kind][data-log-id]")) return;
       document.querySelector("#cardTooltip").classList.remove("open");
     });
 
