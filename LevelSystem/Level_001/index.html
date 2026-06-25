@@ -709,7 +709,7 @@
       <div id="resultMark" class="modal-mark">战斗结算</div>
       <h2 id="resultTitle">战斗胜利</h2>
       <p id="resultText"></p>
-      <div class="reward-breakdown">
+      <div id="rewardBreakdown" class="reward-breakdown">
         <div class="reward-row"><span>战斗奖励</span><strong id="baseReward">+15c</strong></div>
         <div class="reward-row"><span>离店金币利息</span><strong id="interestReward">+0c</strong></div>
         <div class="reward-row"><span>结算后金币</span><strong id="totalGold">0c</strong></div>
@@ -718,7 +718,10 @@
         <h3>本场战斗日志</h3>
         <div id="resultBattleLog" class="result-battle-log"></div>
       </section>
-      <div class="modal-actions"><button id="continueBtn" class="primary">进入下一商店</button></div>
+      <div class="modal-actions">
+        <button id="replayBtn" class="secondary">回放本场</button>
+        <button id="continueBtn" class="primary">进入下一商店</button>
+      </div>
     </div>
   </div>
   <div id="toast" class="toast"></div>
@@ -798,7 +801,8 @@
       strategyInventory:Array(6).fill("prepare_draw"),
       weaponOrder:[], shopOffers:null, offerSerial:0,
       shopVisits:0, exitGold:0, sessionRecords:[],
-      battle:null, speed:1, raf:0, lastTime:0
+      battle:null, lastBattleResult:null, resultMode:"settlement",
+      speed:1, raf:0, lastTime:0
     };
     let referenceBuildDatabase = [];
     let silentSimulation = false;
@@ -814,7 +818,8 @@
         strategyInventory:Array(6).fill("prepare_draw"),
         weaponOrder:[], shopOffers:null, offerSerial:0,
         shopVisits:0, exitGold:0, sessionRecords:[],
-        battle:null, speed:1, raf:0, lastTime:0
+        battle:null, lastBattleResult:null, resultMode:"settlement",
+        speed:1, raf:0, lastTime:0
       });
       document.querySelector("#resultOverlay").classList.remove("open");
     }
@@ -1208,6 +1213,7 @@
       return {
         name, hp:100, maxHp:100, block:0, charge:0, strength:0, haste:0, double:0, stance:0,
         deck:shuffleWith(build.cards, random), discard:[], pending:[], chains:[],
+        random,
         strategies:[...build.strategies], strategyIndex:0, strategyTimer:0,
         strategyDuration:strategyById(build.strategies[0]).time,
         weapons:build.weapons.map((id, index) => ({ id, index:index + 1, used:false }))
@@ -1218,16 +1224,34 @@
       const databaseRound = Math.min(state.battleNumber, referenceBuildDatabase.length);
       const databasePool = referenceBuildDatabase[databaseRound - 1];
       const databaseRecord = randomItem(databasePool, Math.random);
-      const databaseBuild = databaseRecord.build;
-      state.battle = {
-        player:createActor(buildSnapshot(), "玩家"),
-        enemy:createActor(databaseBuild, `第 ${databaseRound} 轮参考 Build`),
-        databaseBuild, databaseRecord, databaseRound, ended:false, logs:[]
+      const replayData = {
+        playerBuild:buildSnapshot(),
+        databaseBuild:cloneBuild(databaseRecord.build),
+        databaseRecord:{ ...databaseRecord, build:cloneBuild(databaseRecord.build) },
+        databaseRound,
+        seed:Math.floor(Math.random() * 0xFFFFFFFF)
       };
-      state.exitGold = state.gold;
+      startBattleV2(replayData, false);
+    }
+
+    function startBattleV2(replayData, replay) {
+      const playerRandom = seededRandom(replayData.seed);
+      const enemyRandom = seededRandom(replayData.seed ^ 0x9E3779B9);
+      state.battle = {
+        player:createActor(replayData.playerBuild, "玩家", playerRandom),
+        enemy:createActor(replayData.databaseBuild, `第 ${replayData.databaseRound} 轮参考 Build`, enemyRandom),
+        databaseBuild:replayData.databaseBuild,
+        databaseRecord:replayData.databaseRecord,
+        databaseRound:replayData.databaseRound,
+        replayData, replay, ended:false, logs:[]
+      };
+      if (!replay) state.exitGold = state.gold;
       state.speed = 1;
       document.querySelectorAll("[data-speed]").forEach(button => button.classList.toggle("active", Number(button.dataset.speed) === 1));
-      logBattleV2(`第 ${state.battleNumber} 场开始：玩家 Build 随机匹配第 ${databaseRound} 轮模拟数据池。`);
+      logBattleV2(replay
+        ? `开始回放第 ${state.battleNumber} 场战斗。`
+        : `第 ${state.battleNumber} 场开始：玩家 Build 随机匹配第 ${replayData.databaseRound} 轮模拟数据池。`);
+      document.querySelector("#resultOverlay").classList.remove("open");
       renderBattleV2();
       showScreen("battle");
       state.lastTime = performance.now();
@@ -1236,7 +1260,7 @@
 
     function drawOneV2(actor) {
       if (!actor.deck.length && actor.discard.length) {
-        actor.deck = shuffle(actor.discard);
+        actor.deck = shuffleWith(actor.discard, actor.random);
         actor.discard = [];
       }
       return actor.deck.shift();
@@ -1445,6 +1469,21 @@
       if (battle.ended) return;
       battle.ended = true;
       cancelAnimationFrame(state.raf);
+      if (battle.replay) {
+        state.resultMode = "replay";
+        document.querySelector("#resultMark").textContent = "战斗回放";
+        document.querySelector("#resultTitle").textContent = won ? "回放结束 · 战斗胜利" : "回放结束 · 战斗失败";
+        document.querySelector("#resultText").textContent = "本次回放不会重复结算奖励、胜负或 Build 数据。";
+        document.querySelector("#rewardBreakdown").style.display = "none";
+        document.querySelector("#resultBattleLog").innerHTML = battle.logs.length
+          ? battle.logs.map(item => `<p>${item}</p>`).join("")
+          : `<p class="empty">本场暂无战斗日志。</p>`;
+        document.querySelector("#replayBtn").textContent = "再次回放";
+        document.querySelector("#continueBtn").textContent = "返回战斗结算";
+        document.querySelector("#resultOverlay").classList.add("open");
+        renderBattleV2();
+        return;
+      }
       const base = won ? 15 : 12;
       const interest = interestFor(state.exitGold);
       state.gold += base + interest;
@@ -1457,23 +1496,46 @@
         roundPool.push({ build:cloneBuild(playerBuild), winRate:won ? 1 : 0, simulations:1, source:"玩家实战" });
       }
       const gameOver = state.losses >= 3;
-      document.querySelector("#resultTitle").textContent = won ? "战斗胜利" : "战斗失败";
-      document.querySelector("#resultMark").textContent = gameOver ? "第三次失败" : "战斗结算";
-      document.querySelector("#resultText").textContent = won
-        ? "本轮 Build 已获胜，并记录到本次运行数据中。"
-        : gameOver ? "累计失败达到三次，本轮关卡结束。" : "本轮 Build 已记录，下一商店可以继续调整。";
-      document.querySelector("#baseReward").textContent = `+${base}c`;
-      document.querySelector("#interestReward").textContent = `+${interest}c`;
-      document.querySelector("#totalGold").textContent = `${state.gold}c`;
-      document.querySelector("#resultBattleLog").innerHTML = battle.logs.length
-        ? battle.logs.map(item => `<p>${item}</p>`).join("")
-        : `<p class="empty">本场暂无战斗日志。</p>`;
-      document.querySelector("#continueBtn").textContent = gameOver ? "查看本局成绩" : "进入下一商店";
-      document.querySelector("#resultOverlay").classList.add("open");
+      state.lastBattleResult = {
+        won, base, interest, totalGold:state.gold, gameOver,
+        logs:[...battle.logs],
+        replayData:battle.replayData
+      };
+      renderSettlementResult();
       renderBattleV2();
     }
 
+    function renderSettlementResult() {
+      const result = state.lastBattleResult;
+      if (!result) return;
+      state.resultMode = "settlement";
+      document.querySelector("#resultTitle").textContent = result.won ? "战斗胜利" : "战斗失败";
+      document.querySelector("#resultMark").textContent = result.gameOver ? "第三次失败" : "战斗结算";
+      document.querySelector("#resultText").textContent = result.won
+        ? "本轮 Build 已获胜，并记录到本次运行数据中。"
+        : result.gameOver ? "累计失败达到三次，本轮关卡结束。" : "本轮 Build 已记录，下一商店可以继续调整。";
+      document.querySelector("#rewardBreakdown").style.display = "";
+      document.querySelector("#baseReward").textContent = `+${result.base}c`;
+      document.querySelector("#interestReward").textContent = `+${result.interest}c`;
+      document.querySelector("#totalGold").textContent = `${result.totalGold}c`;
+      document.querySelector("#resultBattleLog").innerHTML = result.logs.length
+        ? result.logs.map(item => `<p>${item}</p>`).join("")
+        : `<p class="empty">本场暂无战斗日志。</p>`;
+      document.querySelector("#replayBtn").textContent = "回放本场";
+      document.querySelector("#continueBtn").textContent = result.gameOver ? "查看本局成绩" : "进入下一商店";
+      document.querySelector("#resultOverlay").classList.add("open");
+    }
+
+    function replayLastBattle() {
+      if (!state.lastBattleResult) return;
+      startBattleV2(state.lastBattleResult.replayData, true);
+    }
+
     function continueAfterBattleV2() {
+      if (state.resultMode === "replay") {
+        renderSettlementResult();
+        return;
+      }
       document.querySelector("#resultOverlay").classList.remove("open");
       if (state.losses >= 3) {
         document.querySelector("#finalWins").textContent = state.wins;
@@ -1525,7 +1587,9 @@
       if (!battle) return;
       const player = battle.player;
       const enemy = battle.enemy;
-      document.querySelector("#battleTitle").textContent = `第 ${state.battleNumber} 场战斗`;
+      document.querySelector("#battleTitle").textContent = battle.replay
+        ? `第 ${state.battleNumber} 场战斗 · 回放`
+        : `第 ${state.battleNumber} 场战斗`;
       document.querySelector("#battleGold").textContent = `${state.exitGold}c`;
       document.querySelector("#battleWins").textContent = state.wins;
       document.querySelector("#battleLosses").textContent = `${state.losses}/3`;
@@ -1641,6 +1705,7 @@
       state.speed = Number(button.dataset.speed);
       document.querySelectorAll("[data-speed]").forEach(item => item.classList.toggle("active", item === button));
     }));
+    document.querySelector("#replayBtn").addEventListener("click", replayLastBattle);
     document.querySelector("#continueBtn").addEventListener("click", continueAfterBattleV2);
     document.querySelector("#restartBtn").addEventListener("click", () => {
       resetRun();
