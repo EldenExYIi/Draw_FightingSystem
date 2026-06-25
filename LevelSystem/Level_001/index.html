@@ -1361,7 +1361,27 @@
       target.block = roundValue(target.block - absorbed);
       const dealt = roundValue(value - absorbed);
       target.hp = Math.max(0, roundValue(target.hp - dealt));
-      return { absorbed, dealt };
+      return { total:value, absorbed, dealt };
+    }
+
+    function damageLogText(result) {
+      if (result.absorbed > 0 && result.dealt === 0) {
+        return `格挡吸收全部 <b>${result.absorbed}</b> 点伤害，生命未受损`;
+      }
+      if (result.absorbed > 0) {
+        return `造成 <b>${result.dealt}</b> 点生命伤害，格挡吸收 <b>${result.absorbed}</b> 点（总伤害 ${result.total}）`;
+      }
+      return `造成 <b>${result.dealt}</b> 点生命伤害`;
+    }
+
+    function receivedDamageLogText(result) {
+      if (result.absorbed > 0 && result.dealt === 0) {
+        return `格挡吸收全部 <b>${result.absorbed}</b> 点伤害，生命未受损`;
+      }
+      if (result.absorbed > 0) {
+        return `受到 <b>${result.dealt}</b> 点生命伤害，格挡吸收 <b>${result.absorbed}</b> 点（总伤害 ${result.total}）`;
+      }
+      return `受到 <b>${result.dealt}</b> 点生命伤害`;
     }
 
     function attackV2(source, target, base, chain, strengthMultiplier = 1, returnCharge = false, chargeBase = 1.2) {
@@ -1370,21 +1390,26 @@
       source.charge = 0;
       const hits = source.double > 0 ? 2 : 1;
       source.double = Math.max(0, source.double - 1);
-      let total = 0;
-      for (let index = 0; index < hits; index += 1) total = roundValue(total + dealDamageV2(target, amount).dealt);
+      const result = { total:0, absorbed:0, dealt:0 };
+      for (let index = 0; index < hits; index += 1) {
+        const hit = dealDamageV2(target, amount);
+        result.total = roundValue(result.total + hit.total);
+        result.absorbed = roundValue(result.absorbed + hit.absorbed);
+        result.dealt = roundValue(result.dealt + hit.dealt);
+      }
       if (returnCharge) source.charge += Math.floor(chargeBefore / 2);
       if (source.stance > 0) {
-        source.block = roundValue(source.block + total);
+        source.block = roundValue(source.block + result.dealt);
         source.stance -= 1;
       }
-      return total;
+      return result;
     }
 
     function executeCardV2(source, target, card, chain) {
       let message = "";
       switch (card.op) {
         case "wait": message = "无效果。"; break;
-        case "damage": message = `造成 <b>${attackV2(source, target, card.amount, chain)}</b> 点伤害。`; break;
+        case "damage": message = `${damageLogText(attackV2(source, target, card.amount, chain))}。`; break;
         case "double": source.double += 1; message = "下一次攻击触发两次。"; break;
         case "charge": source.charge += card.amount; message = `获得 ${card.amount} 层蓄力。`; break;
         case "strength": source.strength += card.amount; message = `获得 ${card.amount} 层力量。`; break;
@@ -1395,22 +1420,22 @@
           message = `消耗 ${amount} 层力量，获得等量蓄力。`;
           break;
         }
-        case "power": message = `造成 <b>${attackV2(source, target, card.amount, chain, 2)}</b> 点伤害。`; break;
-        case "borrow": message = `造成 <b>${attackV2(source, target, card.amount, chain, 1, true)}</b> 点伤害。`; break;
+        case "power": message = `${damageLogText(attackV2(source, target, card.amount, chain, 2))}。`; break;
+        case "borrow": message = `${damageLogText(attackV2(source, target, card.amount, chain, 1, true))}。`; break;
         case "haste": source.haste += 1; message = "获得一层迅捷。"; break;
         case "block": source.block += card.amount; message = `获得 ${card.amount} 点格挡。`; break;
         case "counter": {
           const spent = Math.floor(source.block / 2);
           source.block -= spent;
-          message = `消耗 ${spent} 点格挡，造成 <b>${dealDamageV2(target, spent * 2).dealt}</b> 点伤害。`;
+          message = `消耗 ${spent} 点格挡，${damageLogText(dealDamageV2(target, spent * 2))}。`;
           break;
         }
         case "stance": source.stance += 1; message = "下一次攻击造成伤害时获得等量格挡。"; break;
         case "forge": chain.forge += 1; message = `「${weaponLogHtml(chain.weapon.id)}」获得一层锻造。`; break;
         case "bloodforge": {
-          const selfDamage = dealDamageV2(source, 10).dealt;
+          const selfDamage = dealDamageV2(source, 10);
           chain.forge += 2;
-          message = `受到 ${selfDamage} 点伤害，「${weaponLogHtml(chain.weapon.id)}」获得两层锻造。`;
+          message = `自身${receivedDamageLogText(selfDamage)}，「${weaponLogHtml(chain.weapon.id)}」获得两层锻造。`;
           break;
         }
       }
@@ -1427,9 +1452,14 @@
       }
       if (weapon.id === "dual_blades") {
         const hits = chain.forge >= 5 ? 3 : 2;
-        let total = 0;
-        for (let index = 0; index < hits; index += 1) total = roundValue(total + attackV2(source, target, 10, chain));
-        message = `攻击 ${hits} 次，共造成 <b>${total}</b> 点伤害。`;
+        const result = { total:0, absorbed:0, dealt:0 };
+        for (let index = 0; index < hits; index += 1) {
+          const hit = attackV2(source, target, 10, chain);
+          result.total = roundValue(result.total + hit.total);
+          result.absorbed = roundValue(result.absorbed + hit.absorbed);
+          result.dealt = roundValue(result.dealt + hit.dealt);
+        }
+        message = `攻击 ${hits} 次，${damageLogText(result)}。`;
       }
       if (weapon.id === "shield") {
         const amount = 20 + chain.forge;
@@ -1444,7 +1474,7 @@
       if (weapon.id === "greatsword") {
         const multiplier = chain.forge >= 10 ? 1.5 : 1.4;
         const damage = attackV2(source, target, 20, chain, 1, false, multiplier);
-        message = `以 ${multiplier} 蓄力倍率造成 <b>${damage}</b> 点伤害。`;
+        message = `以 ${multiplier} 蓄力倍率${damageLogText(damage)}。`;
       }
       if (weapon.id === "flame_hammer") {
         if (chain.forge >= 10) {
@@ -1463,8 +1493,8 @@
       if (weapon.id === "stone_sword") {
         chain.forge += 1;
         if (chain.forge >= 50) {
-          const damage = dealDamageV2(target, 100).dealt;
-          message = `自身获得一层锻造，并造成 <b>${damage}</b> 点伤害。`;
+          const damage = dealDamageV2(target, 100);
+          message = `自身获得一层锻造，并${damageLogText(damage)}。`;
         } else {
           message = "自身获得一层锻造。";
         }
@@ -1516,6 +1546,7 @@
     function finishBattleV2(won) {
       const battle = state.battle;
       if (battle.ended) return;
+      logBattleV2(`战斗结束：${won ? "玩家获胜" : "参考 Build 获胜"}。`);
       battle.ended = true;
       cancelAnimationFrame(state.raf);
       if (battle.replay) {
@@ -1598,8 +1629,8 @@
 
     function logBattleV2(html) {
       if (silentSimulation || !state.battle) return;
-      state.battle.logs.unshift({ time:state.battle.elapsed || 0, html });
-      state.battle.logs = state.battle.logs.slice(0, 200);
+      state.battle.logs.push({ time:state.battle.elapsed || 0, html });
+      state.battle.logs = state.battle.logs.slice(-200);
     }
 
     function actorStatusesV2(actor) {
@@ -1677,7 +1708,10 @@
         : "双方 Build 自动战斗中";
       const battleLog = document.querySelector("#battleLog");
       const logHtml = battle.logs.map(logEntryHtml).join("");
-      if (battleLog.innerHTML !== logHtml) battleLog.innerHTML = logHtml;
+      if (battleLog.innerHTML !== logHtml) {
+        battleLog.innerHTML = logHtml;
+        battleLog.scrollTop = battleLog.scrollHeight;
+      }
     }
 
     function battleLoopV2(now) {
