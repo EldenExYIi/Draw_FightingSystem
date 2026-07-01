@@ -296,9 +296,11 @@
     .battle-center { display: grid; grid-template-rows: auto auto minmax(160px, 1fr) auto; overflow: hidden; }
     .battle-heading { padding: 16px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
     .battle-heading h2 { margin: 0; font-size: 20px; }
+    .battle-heading-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     .speed-control { display: flex; gap: 4px; }
     .speed-control button { width: 38px; height: 32px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--muted); font-size: 12px; font-weight: 900; cursor: pointer; }
     .speed-control button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .exit-battle-button { min-height: 32px; padding: 0 12px; border-radius: 5px; font-size: 12px; }
     .strategy-line { padding: 11px 18px; background: var(--paper-2); border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; }
     .strategy-line b { color: var(--green-dark); }
     .chain-area { padding: 18px; min-height: 0; overflow: auto; }
@@ -588,6 +590,7 @@
           <div class="shop-actions">
             <div class="interest-preview"><span>预计利息</span><strong id="interestPreview">+4c</strong></div>
             <button id="refreshShopBtn" class="secondary">刷新商店 · 2c</button>
+            <button id="simulateBattleBtn" class="secondary">模拟战斗</button>
             <button id="leaveShopBtn" class="primary">进入战斗</button>
           </div>
         </div>
@@ -657,15 +660,18 @@
           <main class="battle-center">
             <div class="battle-heading">
               <h2 id="battleStateLabel">正在构筑牌链</h2>
-              <div class="speed-control" aria-label="战斗速度">
-                <button data-speed="0.1">0.1x</button>
-                <button data-speed="0.5">0.5x</button>
-                <button data-speed="1" class="active">1x</button>
-                <button data-speed="2">2x</button>
-                <button data-speed="4">4x</button>
+              <div class="battle-heading-actions">
+                <div class="speed-control" aria-label="战斗速度">
+                  <button data-speed="0.1">0.1x</button>
+                  <button data-speed="0.5">0.5x</button>
+                  <button data-speed="1" class="active">1x</button>
+                  <button data-speed="2">2x</button>
+                  <button data-speed="4">4x</button>
+                </div>
+                <button id="exitBattleBtn" class="ghost exit-battle-button" type="button">退出战斗</button>
               </div>
             </div>
-            <div class="strategy-line">V1 · 六槽策略循环：<b id="battleStrategy">筹备 ×6</b> · 双方使用各自本轮 Build 自动战斗</div>
+            <div class="strategy-line">V1 · 六槽策略循环：<b id="battleStrategy">筹备 ×6</b> · <span id="battleModeText">双方使用各自本轮 Build 自动战斗</span></div>
             <div class="chain-area">
               <div class="chain-title">
                 <h3>玩家抽牌与封装</h3>
@@ -1049,6 +1055,11 @@
       };
     }
 
+    function canStartBattleV2() {
+      const firstWeapon = weaponById(state.weaponOrder[0]);
+      return Boolean(firstWeapon) && state.deck.length >= firstWeapon.slots;
+    }
+
     function openShopV2() {
       cancelAnimationFrame(state.raf);
       state.shopVisits += 1;
@@ -1193,14 +1204,17 @@
       document.querySelector("#databaseList").innerHTML = baselineRows + recordedRows;
 
       const firstWeapon = weaponById(state.weaponOrder[0]);
-      const canBattle = Boolean(firstWeapon) && state.deck.length >= firstWeapon.slots;
+      const canBattle = canStartBattleV2();
       const leaveButton = document.querySelector("#leaveShopBtn");
+      const simulateButton = document.querySelector("#simulateBattleBtn");
       leaveButton.disabled = !canBattle;
+      simulateButton.disabled = !canBattle;
       leaveButton.textContent = !firstWeapon
         ? "需要购买武器"
         : state.deck.length < firstWeapon.slots
           ? `还需 ${firstWeapon.slots - state.deck.length} 张卡牌`
           : "进入战斗";
+      simulateButton.textContent = !canBattle ? "需要可封装 Build" : "模拟战斗";
       document.querySelector("#refreshShopBtn").disabled = state.gold < 2;
     }
 
@@ -1259,11 +1273,24 @@
     function createActor(build, name, random = Math.random) {
       return {
         name, hp:100, maxHp:100, block:0, charge:0, strength:0, haste:0, double:0, stance:0,
+        damageTaken:0,
         deck:shuffleWith(build.cards, random), discard:[], pending:[], chains:[],
         random,
         strategies:[...build.strategies], strategyIndex:0, strategyTimer:0,
         strategyDuration:strategyById(build.strategies[0]).time,
         weapons:build.weapons.map((id, index) => ({ id, index:index + 1, used:false }))
+      };
+    }
+
+    function createTrainingDummyActor() {
+      return {
+        name:"无限血木人", hp:100, maxHp:100, infiniteHp:true, block:0, charge:0, strength:0, haste:0, double:0, stance:0,
+        damageTaken:0,
+        deck:[], discard:[], pending:[], chains:[],
+        random:Math.random,
+        strategies:Array(6).fill("prepare_draw"), strategyIndex:0, strategyTimer:0,
+        strategyDuration:3,
+        weapons:[]
       };
     }
 
@@ -1281,10 +1308,34 @@
       startBattleV2(replayData, false);
     }
 
+    function createSimulationBattleV2() {
+      if (!canStartBattleV2()) return;
+      const seed = Math.floor(Math.random() * 0xFFFFFFFF);
+      state.battle = {
+        mode:"simulation",
+        player:createActor(buildSnapshot(), "玩家", seededRandom(seed)),
+        enemy:createTrainingDummyActor(),
+        databaseBuild:null,
+        databaseRecord:null,
+        databaseRound:0,
+        replayData:null, replay:false, elapsed:0, accumulator:0, ended:false, logs:[]
+      };
+      state.exitGold = state.gold;
+      state.speed = 1;
+      document.querySelectorAll("[data-speed]").forEach(button => button.classList.toggle("active", Number(button.dataset.speed) === 1));
+      logBattleV2("模拟战斗开始：目标为无限血木人，木人不会攻击，本场不结算奖励、胜负或 Build 数据。");
+      document.querySelector("#resultOverlay").classList.remove("open");
+      renderBattleV2();
+      showScreen("battle");
+      state.lastTime = performance.now();
+      state.raf = requestAnimationFrame(battleLoopV2);
+    }
+
     function startBattleV2(replayData, replay) {
       const playerRandom = seededRandom(replayData.seed);
       const enemyRandom = seededRandom(replayData.seed ^ 0x9E3779B9);
       state.battle = {
+        mode:replay ? "replay" : "battle",
         player:createActor(replayData.playerBuild, "玩家", playerRandom),
         enemy:createActor(replayData.databaseBuild, `第 ${replayData.databaseRound} 轮参考 Build`, enemyRandom),
         databaseBuild:replayData.databaseBuild,
@@ -1360,7 +1411,8 @@
       const absorbed = Math.min(target.block, value);
       target.block = roundValue(target.block - absorbed);
       const dealt = roundValue(value - absorbed);
-      target.hp = Math.max(0, roundValue(target.hp - dealt));
+      target.damageTaken = roundValue((target.damageTaken || 0) + dealt);
+      if (!target.infiniteHp) target.hp = Math.max(0, roundValue(target.hp - dealt));
       return { total:value, absorbed, dealt };
     }
 
@@ -1538,9 +1590,27 @@
       if (!battle || battle.ended) return;
       battle.elapsed = roundValue(battle.elapsed + dt);
       updateActorV2(battle.player, battle.enemy, dt);
+      if (battle.mode === "simulation") {
+        if (battle.player.hp <= 0) {
+          logBattleV2("模拟战斗结束：玩家生命归零。");
+          battle.ended = true;
+          cancelAnimationFrame(state.raf);
+        }
+        return;
+      }
       if (battle.enemy.hp > 0) updateActorV2(battle.enemy, battle.player, dt);
       if (battle.enemy.hp <= 0) finishBattleV2(true);
       else if (battle.player.hp <= 0) finishBattleV2(false);
+    }
+
+    function exitSimulationBattleV2() {
+      const battle = state.battle;
+      if (!battle || battle.mode !== "simulation") return;
+      cancelAnimationFrame(state.raf);
+      state.battle = null;
+      renderShopV2();
+      showScreen("shop");
+      toast("已退出模拟战斗");
     }
 
     function finishBattleV2(won) {
@@ -1667,27 +1737,44 @@
       if (!battle) return;
       const player = battle.player;
       const enemy = battle.enemy;
-      document.querySelector("#battleTitle").textContent = battle.replay
-        ? `第 ${state.battleNumber} 场战斗 · 回放`
-        : `第 ${state.battleNumber} 场战斗`;
+      document.querySelector("#battleTitle").textContent = battle.mode === "simulation"
+        ? "模拟战斗"
+        : battle.replay
+          ? `第 ${state.battleNumber} 场战斗 · 回放`
+          : `第 ${state.battleNumber} 场战斗`;
       document.querySelector("#battleGold").textContent = `${state.exitGold}c`;
       document.querySelector("#battleWins").textContent = state.wins;
       document.querySelector("#battleLosses").textContent = `${state.losses}/3`;
       document.querySelector("#battleStrategy").textContent = player.strategies.map(id => strategyById(id).name).join(" → ");
       document.querySelector("#playerHpText").textContent = `${player.hp} / ${player.maxHp}`;
-      document.querySelector("#enemyHpText").textContent = `${enemy.hp} / ${enemy.maxHp}`;
+      document.querySelector("#enemyHpText").textContent = enemy.infiniteHp ? "无限" : `${enemy.hp} / ${enemy.maxHp}`;
       document.querySelector("#playerHpFill").style.transform = `scaleX(${player.hp / player.maxHp})`;
-      document.querySelector("#enemyHpFill").style.transform = `scaleX(${enemy.hp / enemy.maxHp})`;
+      document.querySelector("#enemyHpFill").style.transform = `scaleX(${enemy.infiniteHp ? 1 : enemy.hp / enemy.maxHp})`;
       document.querySelector("#playerStatuses").innerHTML = actorStatusesV2(player);
       document.querySelector("#enemyStatuses").innerHTML = actorStatusesV2(enemy);
       document.querySelector("#enemyName").textContent = enemy.name;
-      document.querySelector("#enemyPortrait").textContent = "战士";
-      document.querySelector("#enemyIntent").textContent =
-        `第 ${battle.databaseRound} 轮数据池 · ${battle.databaseRecord.source} · 校准胜率 ${Math.round(battle.databaseRecord.winRate * 100)}%`;
-      document.querySelector("#enemyBuildText").innerHTML =
-        `${battle.databaseBuild.cards.length} 张牌<br>` +
-        `${battle.databaseBuild.weapons.map(id => weaponById(id).name).join(" → ")}<br>` +
-        `${battle.databaseBuild.strategies.map(id => strategyById(id).name).join(" → ")}`;
+      document.querySelector("#enemyPortrait").textContent = enemy.infiniteHp ? "木人" : "战士";
+      document.querySelector("#exitBattleBtn").style.display = battle.mode === "simulation" ? "" : "none";
+      if (battle.mode === "simulation") {
+        const damage = roundValue(enemy.damageTaken || 0);
+        const dps = battle.elapsed > 0 ? roundValue(damage / battle.elapsed) : 0;
+        document.querySelector("#battleModeText").innerHTML = `模拟木人 · 累计伤害 <b>${damage}</b> · DPS <b>${dps}</b>`;
+        document.querySelector("#enemyIntent").textContent = `无限血 · 不攻击 · 已承受 ${damage} 点伤害`;
+        document.querySelector("#enemyBuildText").innerHTML =
+          `战斗时间 ${formatBattleTime(battle.elapsed)}<br>` +
+          `平均 DPS ${dps}<br>` +
+          `本场仅用于测试当前 Build`;
+      } else {
+        document.querySelector("#battleModeText").textContent = battle.replay
+          ? "本次为战斗回放，不重复结算"
+          : "双方使用各自本轮 Build 自动战斗";
+        document.querySelector("#enemyIntent").textContent =
+          `第 ${battle.databaseRound} 轮数据池 · ${battle.databaseRecord.source} · 校准胜率 ${Math.round(battle.databaseRecord.winRate * 100)}%`;
+        document.querySelector("#enemyBuildText").innerHTML =
+          `${battle.databaseBuild.cards.length} 张牌<br>` +
+          `${battle.databaseBuild.weapons.map(id => weaponById(id).name).join(" → ")}<br>` +
+          `${battle.databaseBuild.strategies.map(id => strategyById(id).name).join(" → ")}`;
+      }
 
       const playerWeapon = player.weapons.find(item => !item.used);
       const playerWeaponData = playerWeapon && weaponById(playerWeapon.id);
@@ -1702,10 +1789,12 @@
       document.querySelector("#drawProgress").textContent =
         `策略槽 ${player.strategyIndex + 1}/6 · 待封装 ${player.pending.length} · 已生成 ${player.chains.length} 条牌链`;
       document.querySelector("#enemyDrawProgress").textContent =
-        `策略槽 ${enemy.strategyIndex + 1}/6 · 待封装 ${enemy.pending.length} · 已生成 ${enemy.chains.length} 条牌链`;
+        battle.mode === "simulation"
+          ? "木人不抽牌、不攻击"
+          : `策略槽 ${enemy.strategyIndex + 1}/6 · 待封装 ${enemy.pending.length} · 已生成 ${enemy.chains.length} 条牌链`;
       document.querySelector("#battleStateLabel").textContent = battle.ended
-        ? enemy.hp <= 0 ? "战斗胜利" : "战斗失败"
-        : "双方 Build 自动战斗中";
+        ? battle.mode === "simulation" ? "模拟已停止" : enemy.hp <= 0 ? "战斗胜利" : "战斗失败"
+        : battle.mode === "simulation" ? "模拟战斗中" : "双方 Build 自动战斗中";
       const battleLog = document.querySelector("#battleLog");
       const logHtml = battle.logs.map(logEntryHtml).join("");
       if (battleLog.innerHTML !== logHtml) {
@@ -1787,11 +1876,12 @@
       if (button) moveQueueItem(state.weaponOrder, Number(button.dataset.moveWeapon), Number(button.dataset.direction));
     });
     document.querySelector("#refreshShopBtn").addEventListener("click", refreshShopV2);
+    document.querySelector("#simulateBattleBtn").addEventListener("click", createSimulationBattleV2);
     document.querySelector("#leaveShopBtn").addEventListener("click", () => {
-      const firstWeapon = weaponById(state.weaponOrder[0]);
-      if (!firstWeapon || state.deck.length < firstWeapon.slots) return;
+      if (!canStartBattleV2()) return;
       createBattleV2();
     });
+    document.querySelector("#exitBattleBtn").addEventListener("click", exitSimulationBattleV2);
     document.querySelectorAll("[data-speed]").forEach(button => button.addEventListener("click", () => {
       state.speed = Number(button.dataset.speed);
       document.querySelectorAll("[data-speed]").forEach(item => item.classList.toggle("active", item === button));
